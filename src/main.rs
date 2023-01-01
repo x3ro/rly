@@ -28,15 +28,9 @@ fn expand(param: impl AsRef<str>) -> String {
 
 async fn run(config: &Config, tx: mpsc::Sender<Event>) -> Result<()> {
     let mut joins = JoinSet::new();
-    let mut pids = vec![];
 
     for (idx, cmd) in config.commands.iter().enumerate() {
-        let mut runnable: tokio::process::Command = cmd.into();
-        let mut child = runnable.spawn()?;
-
-        let pid= child.id()
-            .expect("Successfully spawned child should have a PID");
-        pids.push(pid);
+        let mut child = cmd.child.lock().await.take().unwrap();
 
         let stdout = child
             .stdout

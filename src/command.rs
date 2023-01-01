@@ -1,6 +1,9 @@
 use std::process::Stdio;
+use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use tokio::process::Child;
+use tokio::sync::Mutex;
 
 use crate::config::Config;
 
@@ -10,14 +13,11 @@ pub struct Commands;
 pub struct Command {
     pub name: String,
     pub command: String,
-}
-
-impl From<&Command> for tokio::process::Command {
-    fn from(cmd: &Command) -> Self {
-        let mut res = tokio::process::Command::new("sh");
-        res.arg("-c").arg(&cmd.command).stdout(Stdio::piped());
-        res
-    }
+    // TODO: It's a bit difficult to
+    //       get the PID into the Command::name, and for now I'm
+    //       spawning the process when creating the command.
+    //       Not super happy with this, maybe there's a better way?
+    pub child: Arc<Mutex<Option<Child>>>,
 }
 
 impl Commands {
@@ -34,17 +34,27 @@ impl Commands {
         Ok(commands)
     }
 
-
-
     fn parse_command(config: &Config, idx: usize, cmd: impl AsRef<str>) -> Result<Command> {
-        let name = config.args.prefix
+        let mut runnable = tokio::process::Command::new("sh");
+        runnable.arg("-c").arg(cmd.as_ref()).stdout(Stdio::piped());
+
+        let child = runnable.spawn()?;
+        let pid = child
+            .id()
+            .expect("Successfully spawned child should have a PID");
+
+        let name = config
+            .args
+            .prefix
             .replace("{index}", &format!("{}", idx))
+            .replace("{pid}", &format!("{}", pid))
             .replace("{command}", cmd.as_ref())
             .replace("{name}", config.names.get(idx).unwrap());
 
         let command = Command {
             name,
             command: cmd.as_ref().to_string(),
+            child: Arc::new(Mutex::new(Some(child))),
         };
 
         Ok(command)
