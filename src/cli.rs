@@ -92,8 +92,8 @@ pub struct Args {
     #[clap(short = 'l', long, default_value = "10")]
     pub prefix_length: usize,
 
-    /// Specify the timestamp in moment/date-fns format.
-    #[clap(short, long, default_value = "yyyy-MM-dd HH:mm:ss.SSS")]
+    /// Specify the timestamp in chrono::format syntax.
+    #[clap(short, long, default_value = "%Y-%m-%d %H:%M:%S.%3f")]
     pub timestamp_format: String,
 
     /// Kill other processes if one exits or dies.
