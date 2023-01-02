@@ -63,7 +63,7 @@ pub struct Args {
     /// Prefix used in logging for each process.
     /// Possible values: index, pid, time, command, name,
     /// none, or a template. Example template: "{time}-{pid}"
-    #[clap(short, long, default_value = "{name}")]
+    #[clap(short, long, default_value = "[{name}]")]
     pub prefix: String,
 
     /// Comma-separated list of chalk colors to use on

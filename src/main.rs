@@ -99,7 +99,7 @@ async fn main() -> Result<()> {
             match event {
                 Event::Output { command_idx, line } => {
                     let cmd = config.commands.get(command_idx).unwrap();
-                    println!("[{}] {}", cmd.name, line);
+                    println!("{} {}", cmd.name, line);
                 }
                 Event::Exit {
                     command_idx,
@@ -108,7 +108,7 @@ async fn main() -> Result<()> {
                     let cmd = config.commands.get(command_idx).unwrap();
                     let full_command = config.args.commands.get(command_idx).unwrap();
                     println!(
-                        "[{}] {} exited with code {}",
+                        "{} {} exited with code {}",
                         cmd.name,
                         full_command,
                         status.code().unwrap()

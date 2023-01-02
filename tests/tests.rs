@@ -80,8 +80,8 @@ fn it_supports_custom_prefixes() {
 
     let out = cmd
         .arg("cat some-file")
-        .args(&["--prefix", "{index}-{command}"])
-        .arg("--prefix-length=12")
+        .args(&["--prefix", "[{index}-{command}]"])
+        .arg("--prefix-length=14")
         .stdout();
 
     let expected = r#"[0-cat..-file] some-file-contents
