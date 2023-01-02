@@ -84,9 +84,8 @@ fn it_supports_custom_prefixes() {
         .arg("--prefix-length=12")
         .stdout();
 
-    let expected = r#"[0] some-file
-[0-cat ..file] some-file-contents
-[0-cat ..file] cat some-file exited with code 0
+    let expected = r#"[0-cat..-file] some-file-contents
+[0-cat..-file] cat some-file exited with code 0
 "#;
 
     assert_str_eq!(expected, out);
