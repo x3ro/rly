@@ -13,6 +13,7 @@ pub struct Commands;
 pub struct Command {
     prefix: String,
     prefix_length: usize,
+    timestamp_format: String,
 
     pub command: String,
     // TODO: It's a bit difficult to
@@ -24,8 +25,12 @@ pub struct Command {
 
 impl Command {
     pub fn prefix(&self) -> String {
-        let prefix = self.prefix
-            .replace("{time}", &chrono::prelude::Local::now().format("%Y-%m-%d %H:%M:%S.%3f").to_string());
+        let prefix = self.prefix.replace(
+            "{time}",
+            &chrono::prelude::Local::now()
+                .format(&self.timestamp_format)
+                .to_string(),
+        );
 
         if prefix.len() > self.prefix_length {
             Self::shorten_name(self.prefix_length, &prefix)
@@ -97,6 +102,7 @@ impl Commands {
         let command = Command {
             prefix,
             prefix_length: config.args.prefix_length,
+            timestamp_format: config.args.timestamp_format.clone(),
             command: cmd.as_ref().to_string(),
             child: Arc::new(Mutex::new(Some(child))),
         };

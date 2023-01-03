@@ -8,10 +8,10 @@
 - [ ] `--hide`
 - [ ] `--timings`
 - [ ] `--passthrough-arguments`
-- [ ] `--prefix`
+- [x] `--prefix`
   - [x] index
   - [x] pid
-  - [ ] time
+  - [x] time
   - [x] command
   - [x] name
 - [ ] `--prefix-colors`

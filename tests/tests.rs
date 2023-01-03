@@ -90,3 +90,27 @@ fn it_supports_custom_prefixes() {
 
     assert_str_eq!(expected, out);
 }
+
+#[test]
+fn it_supports_time_prefix() {
+    let (dir, mut cmd) = setup("it_runs_a_basic_command");
+    dir.create("some-file", "some-file-contents");
+
+    let timestamp_format = "%Y-%m-%d %H:%M";
+    let out = cmd
+        .arg("cat some-file")
+        .args(&["--prefix", "[{time}]"])
+        .args(&["--timestamp-format", timestamp_format])
+        .arg("--prefix-length=25")
+        .stdout();
+
+    let expected_time = chrono::Local::now().format(timestamp_format);
+    let expected = format!(
+        r#"[{0}] some-file-contents
+[{0}] cat some-file exited with code 0
+"#,
+        expected_time
+    );
+
+    assert_str_eq!(expected, out);
+}

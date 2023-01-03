@@ -1,6 +1,7 @@
 extern crate core;
 
 mod cli;
+mod colors;
 mod command;
 mod config;
 
