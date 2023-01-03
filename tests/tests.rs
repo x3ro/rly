@@ -115,13 +115,25 @@ fn it_supports_time_prefix() {
     assert_str_eq!(expected, out);
 }
 
-fn escape_debug_by_line(s: impl AsRef<str>) -> String {
-    s.as_ref()
-        .escape_debug()
-        .to_string()
-        .split("\\n")
-        .collect::<Vec<_>>()
-        .join("\n")
+#[test]
+fn it_supports_disabling_color() {
+    let (dir, mut cmd) = setup("it_supports_disabling_color");
+    dir.create("some-file", "some-file-contents");
+
+    let out = cmd
+        .arg("cat some-file")
+        .args(&["--prefix", "[{index}]"])
+        .args(&["--prefix-colors", "blue.bgRed"])
+        .arg("--no-color")
+        .stdout();
+
+    let expected = format!(
+        r#"[0] some-file-contents
+[0] cat some-file exited with code 0
+"#
+    );
+
+    assert_str_eq!(expected, out);
 }
 
 #[test]
@@ -151,4 +163,13 @@ fn it_supports_colors() {
     );
 
     assert_str_eq!(escape_debug_by_line(expected), escape_debug_by_line(out));
+}
+
+fn escape_debug_by_line(s: impl AsRef<str>) -> String {
+    s.as_ref()
+        .escape_debug()
+        .to_string()
+        .split("\\n")
+        .collect::<Vec<_>>()
+        .join("\n")
 }

@@ -85,7 +85,7 @@ impl Commands {
             .id()
             .expect("Successfully spawned child should have a PID");
 
-        let prefix = config
+        let mut prefix = config
             .args
             .prefix
             .replace("{index}", &format!("{}", idx))
@@ -96,7 +96,9 @@ impl Commands {
             )
             .replace("{name}", config.names.get(idx).unwrap());
 
-        let prefix = colorize(config.prefix_colors.get(idx).unwrap(), &prefix)?;
+        if !config.args.no_color {
+            prefix = colorize(config.prefix_colors.get(idx).unwrap(), &prefix)?;
+        }
 
         let command = Command {
             prefix,

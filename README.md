@@ -4,7 +4,7 @@
 - [x] `--names` can be passed
 - [x] `--name-separator`
 - [ ] `--raw`
-- [ ] `--no-color`
+- [x] `--no-color`
 - [ ] `--hide`
 - [ ] `--timings`
 - [ ] `--passthrough-arguments`

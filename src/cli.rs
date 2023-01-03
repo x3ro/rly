@@ -37,7 +37,7 @@ pub struct Args {
     pub raw: bool,
 
     /// Disables colors from logging.
-    #[clap(long)]
+    #[clap(long, default_value = "false")]
     pub no_color: bool,
 
     /// Comma-separated list of processes for which to
