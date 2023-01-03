@@ -16,7 +16,7 @@
   - [x] name
 - [x] `--prefix-colors`
 - [x] `--prefix-length`
-- [ ] `--timestamp-format`
+- [x] `--timestamp-format`
 - [ ] `--kill-others`
 - [ ] `--kill-others-on-fail`
 - [ ] `--restart-tries`
