@@ -14,7 +14,7 @@
   - [x] time
   - [x] command
   - [x] name
-- [ ] `--prefix-colors`
+- [x] `--prefix-colors`
 - [x] `--prefix-length`
 - [ ] `--timestamp-format`
 - [ ] `--kill-others`

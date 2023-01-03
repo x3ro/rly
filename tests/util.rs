@@ -157,6 +157,7 @@ impl Dir {
     ///   can simply pass it again to override it.
     pub fn command(&self) -> TestCommand {
         let mut cmd = self.bin();
+        cmd.env("CLICOLOR_FORCE", "true");
         cmd.current_dir(&self.dir);
         TestCommand {
             dir: self.clone(),

@@ -5,6 +5,7 @@ use anyhow::{Context, Result};
 use tokio::process::Child;
 use tokio::sync::Mutex;
 
+use crate::colors::colorize;
 use crate::config::Config;
 
 pub struct Commands;
@@ -12,7 +13,6 @@ pub struct Commands;
 #[derive(Debug)]
 pub struct Command {
     prefix: String,
-    prefix_length: usize,
     timestamp_format: String,
 
     pub command: String,
@@ -25,21 +25,15 @@ pub struct Command {
 
 impl Command {
     pub fn prefix(&self) -> String {
-        let prefix = self.prefix.replace(
+        self.prefix.replace(
             "{time}",
             &chrono::prelude::Local::now()
                 .format(&self.timestamp_format)
                 .to_string(),
-        );
-
-        if prefix.len() > self.prefix_length {
-            Self::shorten_name(self.prefix_length, &prefix)
-        } else {
-            prefix
-        }
+        )
     }
 
-    fn shorten_name(prefix_length: usize, name: &str) -> String {
+    fn shorten(prefix_length: usize, name: &str) -> String {
         // -1 because of the two-character ellipsis (..), one
         // character for each part.
         const ELLIPSIS: &str = "..";
@@ -96,12 +90,16 @@ impl Commands {
             .prefix
             .replace("{index}", &format!("{}", idx))
             .replace("{pid}", &format!("{}", pid))
-            .replace("{command}", cmd.as_ref())
+            .replace(
+                "{command}",
+                &Command::shorten(config.args.prefix_length, cmd.as_ref()),
+            )
             .replace("{name}", config.names.get(idx).unwrap());
+
+        let prefix = colorize(config.prefix_colors.get(idx).unwrap(), &prefix)?;
 
         let command = Command {
             prefix,
-            prefix_length: config.args.prefix_length,
             timestamp_format: config.args.timestamp_format.clone(),
             command: cmd.as_ref().to_string(),
             child: Arc::new(Mutex::new(Some(child))),

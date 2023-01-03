@@ -75,7 +75,7 @@ fn it_repeats_last_name_if_not_enough_names_are_given() {
 
 #[test]
 fn it_supports_custom_prefixes() {
-    let (dir, mut cmd) = setup("it_runs_a_basic_command");
+    let (dir, mut cmd) = setup("it_supports_custom_prefixes");
     dir.create("some-file", "some-file-contents");
 
     let out = cmd
@@ -84,8 +84,8 @@ fn it_supports_custom_prefixes() {
         .arg("--prefix-length=14")
         .stdout();
 
-    let expected = r#"[0-cat..-file] some-file-contents
-[0-cat..-file] cat some-file exited with code 0
+    let expected = r#"[0-cat so..e-file] some-file-contents
+[0-cat so..e-file] cat some-file exited with code 0
 "#;
 
     assert_str_eq!(expected, out);
@@ -93,7 +93,7 @@ fn it_supports_custom_prefixes() {
 
 #[test]
 fn it_supports_time_prefix() {
-    let (dir, mut cmd) = setup("it_runs_a_basic_command");
+    let (dir, mut cmd) = setup("it_supports_time_prefix");
     dir.create("some-file", "some-file-contents");
 
     let timestamp_format = "%Y-%m-%d %H:%M";
@@ -113,4 +113,42 @@ fn it_supports_time_prefix() {
     );
 
     assert_str_eq!(expected, out);
+}
+
+fn escape_debug_by_line(s: impl AsRef<str>) -> String {
+    s.as_ref()
+        .escape_debug()
+        .to_string()
+        .split("\\n")
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[test]
+fn it_supports_colors() {
+    let (dir, mut cmd) = setup("it_supports_colors");
+    dir.create("some-file", "some-file-contents");
+
+    let out = cmd
+        .arg("cat some-file")
+        .arg("sleep 0.1; echo foo")
+        .arg("sleep 0.2; echo bar")
+        .args(&["--prefix-colors", "blue.strikethrough.bgRed,green"])
+        .stdout();
+
+    let expected_prefix = "\u{1b}[9;41;34m[0]\u{1b}[0m";
+    let expected_prefix_green_1 = "\u{1b}[32m[1]\u{1b}[0m";
+    let expected_prefix_green_2 = "\u{1b}[32m[2]\u{1b}[0m";
+    let expected = format!(
+        "{0} some-file-contents
+{0} cat some-file exited with code 0
+{1} foo
+{1} sleep 0.1; echo foo exited with code 0
+{2} bar
+{2} sleep 0.2; echo bar exited with code 0
+",
+        expected_prefix, expected_prefix_green_1, expected_prefix_green_2
+    );
+
+    assert_str_eq!(escape_debug_by_line(expected), escape_debug_by_line(out));
 }
