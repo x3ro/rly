@@ -232,7 +232,7 @@ async fn main() -> Result<()> {
     let config: &'static Config = Box::leak(Box::new(args.try_into()?));
     debug!("{:#?}", config);
 
-    if config.commands.len() < 1 {
+    if config.commands.is_empty() {
         Args::command().print_long_help()?;
         println!();
         bail!("No commands were given");
