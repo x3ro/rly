@@ -158,8 +158,13 @@ async fn event_loop(
                 let num_processes = processes_alive.fetch_sub(1, Ordering::Relaxed) - 1;
                 trace!("Alive processes: {}", num_processes);
 
-                if cmd.restart_tries.fetch_sub(1, Ordering::Relaxed) > 0 {
-                    trace!("Restarting {}", &cmd.command);
+                // We're mirroring the behaviour of concurrently, where restarts only happen if
+                // the process exited with a non-success code. This seems to make sense, but maybe
+                // there is a case for an option to always restart?
+                if !status.success()
+                    && (cmd.restart_indefinitely
+                        || cmd.restart_tries.fetch_sub(1, Ordering::Relaxed) > 0)
+                {
                     let tx = tx_orig.clone();
                     processes.spawn(async move {
                         //tokio::time::sleep(Duration::from_millis(1000)).await;

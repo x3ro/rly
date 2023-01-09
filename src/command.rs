@@ -16,6 +16,7 @@ pub struct Command {
 
     pub command: String,
     pub pid: AtomicU32,
+    pub restart_indefinitely: bool,
     pub restart_tries: AtomicI32,
 }
 
@@ -109,6 +110,7 @@ impl Commands {
             command: cmd.as_ref().to_string(),
             pid: Default::default(),
             restart_tries: AtomicI32::new(config.args.restart_tries),
+            restart_indefinitely: config.args.restart_tries < 0,
         };
 
         Ok(command)

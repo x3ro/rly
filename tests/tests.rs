@@ -180,6 +180,25 @@ fn it_supports_colors() {
 }
 
 #[test]
+fn it_does_not_restart_on_success() {
+    let (dir, mut cmd) = setup("it_does_not_restart_on_success");
+    dir.create("some-file", "some-file-contents");
+
+    let out = cmd
+        .arg("cat some-file")
+        .args(&["--restart-tries", "10"])
+        .stdout();
+
+    let expected = format!(
+        r#"[0] some-file-contents
+[0] cat some-file exited with exit status: 0
+"#
+    );
+
+    assert_str_eq!(expected, out);
+}
+
+#[test]
 fn it_supports_restarting() {
     let (_, mut cmd) = setup("it_supports_restarting");
     let out = cmd
