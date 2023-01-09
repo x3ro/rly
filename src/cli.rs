@@ -33,8 +33,8 @@ pub struct Args {
 
     /// Output only raw output of processes, disables
     /// prettifying and concurrently coloring.
-    #[clap(short, long)]
-    pub raw: bool,
+    // #[clap(short, long)]
+    // pub raw: bool,
 
     /// Disables colors from logging.
     #[clap(long, default_value = "false")]
@@ -43,22 +43,22 @@ pub struct Args {
     /// Comma-separated list of processes for which to
     /// hide the output. The processes can be identified
     /// by their name or index.
-    #[clap(long)]
-    pub hide: Option<String>,
+    // #[clap(long)]
+    // pub hide: Option<String>,
 
     /// Order the output as if the commands were run sequentially.
-    #[clap(short, long)]
-    group: bool,
+    // #[clap(short, long)]
+    // group: bool,
 
     /// Show timing information for all processes.
-    #[clap(long)]
-    pub timings: bool,
+    // #[clap(long)]
+    // pub timings: bool,
 
     /// Passthrough additional arguments to commands
     /// (accessible via placeholders) instead of treating
     /// them as commands.
-    #[clap(short = 'P', long)]
-    pub passthrough_arguments: bool,
+    // #[clap(short = 'P', long)]
+    // pub passthrough_arguments: bool,
 
     /// Prefix used in logging for each process.
     /// Possible values: index, pid, time, command, name,
@@ -97,13 +97,13 @@ pub struct Args {
     pub timestamp_format: String,
 
     /// Kill other processes if one exits or dies.
-    #[clap(short, long)]
-    pub kill_others: bool,
+    // #[clap(short, long)]
+    // pub kill_others: bool,
 
     /// Kill other processes if one exits with non zero
     /// status code.
-    #[clap(long)]
-    pub kill_others_on_fail: bool,
+    // #[clap(long)]
+    // pub kill_others_on_fail: bool,
 
     /// How many times a process that died should restart.
     /// Negative numbers will make the process restart forever.
@@ -129,8 +129,8 @@ mod tests {
     }
 
     #[test]
-    fn test_raw() {
-        let res = try_parse(&["--raw", "npm run watch-less", "npm run watch-js"]).unwrap();
+    fn test_no_color() {
+        let res = try_parse(&["--no-color", "npm run watch-less", "npm run watch-js"]).unwrap();
 
         let commands = vec![
             "npm run watch-less".to_string(),
@@ -138,6 +138,6 @@ mod tests {
         ];
 
         assert_eq!(commands, res.commands);
-        assert!(res.raw);
+        assert!(res.no_color);
     }
 }
