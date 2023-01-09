@@ -6,6 +6,22 @@ use crate::util::setup;
 mod util;
 
 #[test]
+fn it_runs_a_single_basic_command() {
+    let (dir, mut cmd) = setup("it_runs_a_single_basic_command");
+    dir.create("some-file", "some-file-contents");
+
+    let out = cmd
+        .arg("ls")
+        .stdout();
+
+    let expected = r#"[0] some-file
+[0] ls exited with code 0
+"#;
+
+    assert_str_eq!(expected, out);
+}
+
+#[test]
 fn it_runs_a_basic_command() {
     let (dir, mut cmd) = setup("it_runs_a_basic_command");
     dir.create("some-file", "some-file-contents");
@@ -84,8 +100,8 @@ fn it_supports_custom_prefixes() {
         .arg("--prefix-length=14")
         .stdout();
 
-    let expected = r#"[0-cat so..e-file] some-file-contents
-[0-cat so..e-file] cat some-file exited with code 0
+    let expected = r#"[0-cat some-file] some-file-contents
+[0-cat some-file] cat some-file exited with code 0
 "#;
 
     assert_str_eq!(expected, out);

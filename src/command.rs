@@ -34,6 +34,10 @@ impl Command {
     }
 
     fn shorten(prefix_length: usize, name: &str) -> String {
+        if name.len() <= prefix_length {
+            return name.to_string()
+        }
+
         // -1 because of the two-character ellipsis (..), one
         // character for each part.
         const ELLIPSIS: &str = "..";
