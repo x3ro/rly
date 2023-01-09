@@ -1,9 +1,10 @@
 use std::process::Stdio;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
+
 
 use anyhow::{Context, Result};
-use tokio::process::Child;
-use tokio::sync::Mutex;
+use tokio::process::{Command as TokioCommand};
+
 
 use crate::colors::colorize;
 use crate::config::Config;
@@ -16,26 +17,30 @@ pub struct Command {
     timestamp_format: String,
 
     pub command: String,
-    // TODO: It's a bit difficult to
-    //       get the PID into the Command::name, and for now I'm
-    //       spawning the process when creating the command.
-    //       Not super happy with this, maybe there's a better way?
-    pub child: Arc<Mutex<Option<Child>>>,
+    pub pid: AtomicU32,
 }
 
 impl Command {
     pub fn prefix(&self) -> String {
-        self.prefix.replace(
-            "{time}",
-            &chrono::prelude::Local::now()
-                .format(&self.timestamp_format)
-                .to_string(),
-        )
+        self.prefix
+            .replace(
+                "{time}",
+                &chrono::prelude::Local::now()
+                    .format(&self.timestamp_format)
+                    .to_string(),
+            )
+            .replace("{pid}", &self.pid.load(Ordering::Relaxed).to_string())
+    }
+
+    pub fn tokio_command(&self) -> TokioCommand {
+        let mut runnable = tokio::process::Command::new("sh");
+        runnable.arg("-c").arg(&self.command).stdout(Stdio::piped());
+        runnable
     }
 
     fn shorten(prefix_length: usize, name: &str) -> String {
         if name.len() <= prefix_length {
-            return name.to_string()
+            return name.to_string();
         }
 
         // -1 because of the two-character ellipsis (..), one
@@ -81,19 +86,10 @@ impl Commands {
     }
 
     fn prepare_command(config: &Config, idx: usize, cmd: impl AsRef<str>) -> Result<Command> {
-        let mut runnable = tokio::process::Command::new("sh");
-        runnable.arg("-c").arg(cmd.as_ref()).stdout(Stdio::piped());
-
-        let child = runnable.spawn()?;
-        let pid = child
-            .id()
-            .expect("Successfully spawned child should have a PID");
-
         let mut prefix = config
             .args
             .prefix
             .replace("{index}", &format!("{}", idx))
-            .replace("{pid}", &format!("{}", pid))
             .replace(
                 "{command}",
                 &Command::shorten(config.args.prefix_length, cmd.as_ref()),
@@ -108,7 +104,7 @@ impl Commands {
             prefix,
             timestamp_format: config.args.timestamp_format.clone(),
             command: cmd.as_ref().to_string(),
-            child: Arc::new(Mutex::new(Some(child))),
+            pid: Default::default(),
         };
 
         Ok(command)

@@ -6,6 +6,7 @@ mod command;
 mod config;
 
 use std::process::ExitStatus;
+use std::sync::atomic::Ordering;
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
@@ -31,7 +32,12 @@ async fn run(config: &Config, tx: mpsc::Sender<Event>) -> Result<()> {
     let mut joins = JoinSet::new();
 
     for (idx, cmd) in config.commands.iter().enumerate() {
-        let mut child = cmd.child.lock().await.take().unwrap();
+        let mut child = cmd.tokio_command().spawn()?;
+
+        let pid = child
+            .id()
+            .expect("Successfully spawned child should have a PID");
+        cmd.pid.store(pid, Ordering::Relaxed);
 
         let stdout = child
             .stdout

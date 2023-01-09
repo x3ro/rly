@@ -10,9 +10,7 @@ fn it_runs_a_single_basic_command() {
     let (dir, mut cmd) = setup("it_runs_a_single_basic_command");
     dir.create("some-file", "some-file-contents");
 
-    let out = cmd
-        .arg("ls")
-        .stdout();
+    let out = cmd.arg("ls").stdout();
 
     let expected = r#"[0] some-file
 [0] ls exited with code 0
