@@ -13,7 +13,7 @@ fn it_runs_a_single_basic_command() {
     let out = cmd.arg("ls").stdout();
 
     let expected = r#"[0] some-file
-[0] ls exited with code 0
+[0] ls exited with exit status: 0
 "#;
 
     assert_str_eq!(expected, out);
@@ -32,9 +32,9 @@ fn it_runs_a_basic_command() {
 
     let expected = r#"[0] some-file
 [0] some-other-file
-[0] ls . exited with code 0
+[0] ls . exited with exit status: 0
 [1] some-file-contents
-[1] sleep 0.1; cat some-file; exit 1 exited with code 1
+[1] sleep 0.1; cat some-file; exit 1 exited with exit status: 1
 "#;
 
     assert_str_eq!(expected, out);
@@ -54,9 +54,9 @@ fn it_supports_names() {
 
     let expected = r#"[ls] some-file
 [ls] some-other-file
-[ls] ls . exited with code 0
+[ls] ls . exited with exit status: 0
 [cat] some-file-contents
-[cat] sleep 0.1; cat some-file; exit 1 exited with code 1
+[cat] sleep 0.1; cat some-file; exit 1 exited with exit status: 1
 "#;
 
     assert_str_eq!(expected, out);
@@ -77,11 +77,11 @@ fn it_repeats_last_name_if_not_enough_names_are_given() {
 
     let expected = r#"[ls] some-file
 [ls] some-other-file
-[ls] ls . exited with code 0
+[ls] ls . exited with exit status: 0
 [repeat] some-other-file-contents
-[repeat] sleep 0.1; cat some-other-file exited with code 0
+[repeat] sleep 0.1; cat some-other-file exited with exit status: 0
 [repeat] some-file-contents
-[repeat] sleep 0.2; cat some-file; exit 1 exited with code 1
+[repeat] sleep 0.2; cat some-file; exit 1 exited with exit status: 1
 "#;
 
     assert_str_eq!(expected, out);
@@ -99,7 +99,7 @@ fn it_supports_custom_prefixes() {
         .stdout();
 
     let expected = r#"[0-cat some-file] some-file-contents
-[0-cat some-file] cat some-file exited with code 0
+[0-cat some-file] cat some-file exited with exit status: 0
 "#;
 
     assert_str_eq!(expected, out);
@@ -121,7 +121,7 @@ fn it_supports_time_prefix() {
     let expected_time = chrono::Local::now().format(timestamp_format);
     let expected = format!(
         r#"[{0}] some-file-contents
-[{0}] cat some-file exited with code 0
+[{0}] cat some-file exited with exit status: 0
 "#,
         expected_time
     );
@@ -143,7 +143,7 @@ fn it_supports_disabling_color() {
 
     let expected = format!(
         r#"[0] some-file-contents
-[0] cat some-file exited with code 0
+[0] cat some-file exited with exit status: 0
 "#
     );
 
@@ -167,16 +167,39 @@ fn it_supports_colors() {
     let expected_prefix_green_2 = "\u{1b}[32m[2]\u{1b}[0m";
     let expected = format!(
         "{0} some-file-contents
-{0} cat some-file exited with code 0
+{0} cat some-file exited with exit status: 0
 {1} foo
-{1} sleep 0.1; echo foo exited with code 0
+{1} sleep 0.1; echo foo exited with exit status: 0
 {2} bar
-{2} sleep 0.2; echo bar exited with code 0
+{2} sleep 0.2; echo bar exited with exit status: 0
 ",
         expected_prefix, expected_prefix_green_1, expected_prefix_green_2
     );
 
     assert_str_eq!(escape_debug_by_line(expected), escape_debug_by_line(out));
+}
+
+#[test]
+fn it_supports_restarting() {
+    let (_, mut cmd) = setup("it_supports_restarting");
+    let out = cmd
+        .arg("ls /this-directory-does-not-exist")
+        .args(&["--restart-tries", "2"])
+        .stdout();
+
+    let expected = format!(
+        "[0] ls: /this-directory-does-not-exist: No such file or directory
+[0] ls /this-directory-does-not-exist exited with exit status: 1
+[0] ls /this-directory-does-not-exist restarted
+[0] ls: /this-directory-does-not-exist: No such file or directory
+[0] ls /this-directory-does-not-exist exited with exit status: 1
+[0] ls /this-directory-does-not-exist restarted
+[0] ls: /this-directory-does-not-exist: No such file or directory
+[0] ls /this-directory-does-not-exist exited with exit status: 1
+"
+    );
+
+    assert_str_eq!(expected, out);
 }
 
 fn escape_debug_by_line(s: impl AsRef<str>) -> String {

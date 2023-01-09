@@ -5,15 +5,17 @@ mod colors;
 mod command;
 mod config;
 
+use std::fmt::Debug;
 use std::process::ExitStatus;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use command::*;
-use log::debug;
+use log::{debug, error, trace};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::mpsc;
+use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::task::JoinSet;
 
 use crate::cli::Args;
@@ -28,55 +30,12 @@ fn expand(param: impl AsRef<str>) -> String {
     }
 }
 
-async fn run(config: &Config, tx: mpsc::Sender<Event>) -> Result<()> {
-    let mut joins = JoinSet::new();
-
-    for (idx, cmd) in config.commands.iter().enumerate() {
-        let mut child = cmd.tokio_command().spawn()?;
-
-        let pid = child
-            .id()
-            .expect("Successfully spawned child should have a PID");
-        cmd.pid.store(pid, Ordering::Relaxed);
-
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| anyhow!("Failed to acquire stdout handle"))?;
-
-        let tx2 = tx.clone();
-        tokio::spawn(async move {
-            let mut reader = BufReader::new(stdout).lines();
-
-            while let Some(line) = reader.next_line().await.unwrap() {
-                tx2.send(Event::Output {
-                    line,
-                    command_idx: idx,
-                })
-                .await
-                .unwrap();
-            }
-        });
-
-        joins.spawn(async move { (idx, child.wait().await.unwrap()) });
-    }
-
-    while let Some(res) = joins.join_next().await {
-        let (idx, status) = res?;
-
-        tx.send(Event::Exit {
-            status,
-            command_idx: idx,
-        })
-        .await
-        .unwrap();
-    }
-
-    Ok(())
-}
-
 #[derive(Debug)]
 enum Event {
+    Spawn {
+        command_idx: usize,
+        is_restart: bool,
+    },
     Output {
         line: String,
         command_idx: usize,
@@ -89,6 +48,174 @@ enum Event {
 
 const OUTPUT_CHANNEL_BUFFER_SIZE: usize = 128;
 
+async fn event_loop(
+    config: &Config,
+    tx_orig: Sender<Event>,
+    mut rx: Receiver<Event>,
+) -> Result<()> {
+    let processes_alive = AtomicUsize::new(0);
+    let mut processes: JoinSet<Result<()>> = JoinSet::new();
+
+    for (command_idx, _) in config.commands.iter().enumerate() {
+        tx_orig
+            .send(Event::Spawn {
+                command_idx,
+                is_restart: false,
+            })
+            .await
+            .unwrap()
+    }
+
+    while let Some(event) = rx.recv().await {
+        match event {
+            Event::Spawn {
+                command_idx,
+                is_restart,
+            } => {
+                trace!("Spawning command {command_idx}");
+
+                let cmd = config.commands.get(command_idx).unwrap();
+                let mut child = cmd.tokio_command().spawn().expect("Failed to spawn child");
+
+                let pid = child
+                    .id()
+                    .expect("Successfully spawned child should have a PID");
+                cmd.pid.store(pid, Ordering::Relaxed);
+
+                let stdout = child
+                    .stdout
+                    .take()
+                    .ok_or_else(|| anyhow!("Failed to acquire stdout handle"))?;
+
+                let stderr = child
+                    .stderr
+                    .take()
+                    .ok_or_else(|| anyhow!("Failed to acquire stderr handle"))?;
+
+                // This is the task that handles the child's stdout
+                let tx = tx_orig.clone();
+                processes.spawn(async move {
+                    trace!("stdout reader task for {pid} started");
+
+                    let mut reader = BufReader::new(stdout).lines();
+                    while let Some(line) = reader.next_line().await? {
+                        tx.send(Event::Output { line, command_idx }).await?
+                    }
+
+                    trace!("stdout reader task for {pid} stopped");
+                    Ok(())
+                });
+
+                // This is the task that handles the child's stderr
+                let tx = tx_orig.clone();
+                processes.spawn(async move {
+                    trace!("stderr reader task for {pid} started");
+
+                    let mut reader = BufReader::new(stderr).lines();
+                    while let Some(line) = reader.next_line().await? {
+                        tx.send(Event::Output { line, command_idx }).await?
+                    }
+
+                    trace!("stderr reader task for {pid} stopped");
+                    Ok(())
+                });
+
+                // This is the task that waits for the child's exit status
+                let tx = tx_orig.clone();
+                processes.spawn(async move {
+                    let status = child.wait().await?;
+                    trace!("Task with pid {pid} stopped with {status}");
+                    tx.send(Event::Exit {
+                        command_idx,
+                        status,
+                    })
+                    .await?;
+
+                    Ok(())
+                });
+
+                processes_alive.fetch_add(1, Ordering::SeqCst);
+                if is_restart {
+                    let full_command = config.args.commands.get(command_idx).unwrap();
+                    println!("{} {} restarted", cmd.prefix(), full_command);
+                }
+            }
+
+            Event::Output { command_idx, line } => {
+                let cmd = config.commands.get(command_idx).unwrap();
+                println!("{} {}", cmd.prefix(), line);
+            }
+
+            Event::Exit {
+                command_idx,
+                status,
+            } => {
+                let cmd = config.commands.get(command_idx).unwrap();
+                let full_command = config.args.commands.get(command_idx).unwrap();
+                println!("{} {} exited with {}", cmd.prefix(), full_command, status);
+
+                // -1 because `fetch_sub` returns the state _before_ the subtraction operation
+                let num_processes = processes_alive.fetch_sub(1, Ordering::Relaxed) - 1;
+                trace!("Alive processes: {}", num_processes);
+
+                if cmd.restart_tries.fetch_sub(1, Ordering::Relaxed) > 0 {
+                    trace!("Restarting {}", &cmd.command);
+                    let tx = tx_orig.clone();
+                    processes.spawn(async move {
+                        //tokio::time::sleep(Duration::from_millis(1000)).await;
+                        tx.send(Event::Spawn {
+                            command_idx,
+                            is_restart: true,
+                        })
+                        .await
+                        .context("Failed to send spawn message")
+                    });
+                } else if num_processes < 1 {
+                    debug!("No more processes. Stopping main loop.");
+                    break;
+                }
+            }
+        }
+    }
+
+    // Why need to drop the sending end of this channel, so that the receiving end will
+    // close once all messages have been delivered. If we don't drop this end here, the
+    // draining loop below will wait indefinitely.
+    drop(tx_orig);
+
+    while let Some(event) = rx.recv().await {
+        match event {
+            Event::Output { command_idx, line } => {
+                let cmd = config.commands.get(command_idx).unwrap();
+                println!("{} {}", cmd.prefix(), line);
+            }
+            x => {
+                error!("{:?}", x)
+            }
+        }
+    }
+
+    while let Some(res) = processes.join_next().await {
+        if let Err(err) = flatten_errors(res) {
+            debug!("Spawned task failed with error: {:?}", err);
+        }
+    }
+
+    Ok(())
+}
+
+fn flatten_errors<T, E1, E2>(res: Result<Result<T, E1>, E2>) -> Result<T>
+where
+    E1: Into<anyhow::Error>,
+    E2: Into<anyhow::Error>,
+{
+    match res {
+        Ok(Ok(x)) => Ok(x),
+        Ok(Err(e)) => Err(e.into()),
+        Err(e) => Err(e.into()),
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     pretty_env_logger::init();
@@ -99,33 +226,7 @@ async fn main() -> Result<()> {
 
     // This is the channel that is used to communicate everything that's happening
     // in the spawned processes back here, we're output is handled.
-    let (tx, mut rx) = mpsc::channel::<Event>(OUTPUT_CHANNEL_BUFFER_SIZE);
+    let (tx, rx) = mpsc::channel::<Event>(OUTPUT_CHANNEL_BUFFER_SIZE);
 
-    let handle = tokio::spawn(async move {
-        while let Some(event) = rx.recv().await {
-            match event {
-                Event::Output { command_idx, line } => {
-                    let cmd = config.commands.get(command_idx).unwrap();
-                    println!("{} {}", cmd.prefix(), line);
-                }
-                Event::Exit {
-                    command_idx,
-                    status,
-                } => {
-                    let cmd = config.commands.get(command_idx).unwrap();
-                    let full_command = config.args.commands.get(command_idx).unwrap();
-                    println!(
-                        "{} {} exited with code {}",
-                        cmd.prefix(),
-                        full_command,
-                        status.code().unwrap()
-                    );
-                }
-            }
-        }
-    });
-
-    run(config, tx).await?;
-    handle.await?;
-    Ok(())
+    event_loop(config, tx, rx).await
 }

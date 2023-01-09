@@ -1,10 +1,8 @@
 use std::process::Stdio;
-use std::sync::atomic::{AtomicU32, Ordering};
-
+use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 
 use anyhow::{Context, Result};
-use tokio::process::{Command as TokioCommand};
-
+use tokio::process::Command as TokioCommand;
 
 use crate::colors::colorize;
 use crate::config::Config;
@@ -18,6 +16,7 @@ pub struct Command {
 
     pub command: String,
     pub pid: AtomicU32,
+    pub restart_tries: AtomicI32,
 }
 
 impl Command {
@@ -34,7 +33,11 @@ impl Command {
 
     pub fn tokio_command(&self) -> TokioCommand {
         let mut runnable = tokio::process::Command::new("sh");
-        runnable.arg("-c").arg(&self.command).stdout(Stdio::piped());
+        runnable
+            .arg("-c")
+            .arg(&self.command)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
         runnable
     }
 
@@ -105,6 +108,7 @@ impl Commands {
             timestamp_format: config.args.timestamp_format.clone(),
             command: cmd.as_ref().to_string(),
             pid: Default::default(),
+            restart_tries: AtomicI32::new(config.args.restart_tries),
         };
 
         Ok(command)
