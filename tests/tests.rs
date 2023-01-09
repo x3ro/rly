@@ -6,6 +6,13 @@ use crate::util::setup;
 mod util;
 
 #[test]
+fn it_prints_help_when_no_commands_are_given() {
+    let (_, mut cmd) = setup("it_prints_help_when_no_commands_are_given()");
+    let out = cmd.err_stdout();
+    assert!(out.contains("Options:"))
+}
+
+#[test]
 fn it_runs_a_single_basic_command() {
     let (dir, mut cmd) = setup("it_runs_a_single_basic_command");
     dir.create("some-file", "some-file-contents");

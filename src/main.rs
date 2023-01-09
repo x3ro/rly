@@ -9,8 +9,8 @@ use std::fmt::Debug;
 use std::process::ExitStatus;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use anyhow::{anyhow, Context, Result};
-use clap::Parser;
+use anyhow::{anyhow, bail, Context, Result};
+use clap::{CommandFactory, Parser};
 use command::*;
 use log::{debug, error, trace};
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -231,6 +231,12 @@ async fn main() -> Result<()> {
     let args: Args = Args::parse();
     let config: &'static Config = Box::leak(Box::new(args.try_into()?));
     debug!("{:#?}", config);
+
+    if config.commands.len() < 1 {
+        Args::command().print_long_help()?;
+        println!();
+        bail!("No commands were given");
+    }
 
     // This is the channel that is used to communicate everything that's happening
     // in the spawned processes back here, we're output is handled.
