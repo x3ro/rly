@@ -112,7 +112,7 @@ pub struct Args {
 
     /// Delay time to respawn the process, in milliseconds.
     #[clap(long, default_value = "0")]
-    pub restart_after: i32,
+    pub restart_after: u64,
     // #[clap(flatten)]
     // wat: Foobar,
 }

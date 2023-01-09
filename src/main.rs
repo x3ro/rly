@@ -49,7 +49,7 @@ enum Event {
 const OUTPUT_CHANNEL_BUFFER_SIZE: usize = 128;
 
 async fn event_loop(
-    config: &Config,
+    config: &'static Config,
     tx_orig: Sender<Event>,
     mut rx: Receiver<Event>,
 ) -> Result<()> {
@@ -167,7 +167,10 @@ async fn event_loop(
                 {
                     let tx = tx_orig.clone();
                     processes.spawn(async move {
-                        //tokio::time::sleep(Duration::from_millis(1000)).await;
+                        if !config.restart_after.is_zero() {
+                            tokio::time::sleep(config.restart_after).await;
+                        }
+
                         tx.send(Event::Spawn {
                             command_idx,
                             is_restart: true,

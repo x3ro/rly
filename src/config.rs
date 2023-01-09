@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::{Args, Command, Commands};
 
 #[derive(Debug)]
@@ -6,6 +8,7 @@ pub struct Config {
     pub commands: Vec<Command>,
     pub names: Vec<String>,
     pub prefix_colors: Vec<String>,
+    pub restart_after: Duration,
 }
 
 fn maybe_repeat(input: &str, separator: char, count: usize) -> Vec<String> {
@@ -29,12 +32,14 @@ impl TryFrom<Args> for Config {
         };
 
         let prefix_colors: Vec<_> = maybe_repeat(&args.prefix_colors, ',', args.commands.len());
+        let restart_after = Duration::from_millis(args.restart_after);
 
         let mut config = Config {
             args,
             commands: vec![],
             names,
             prefix_colors,
+            restart_after,
         };
 
         config.commands = Commands::from(&config)?;
