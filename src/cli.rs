@@ -96,8 +96,8 @@ pub struct Args {
     pub timestamp_format: String,
 
     /// Kill other processes if one exits or dies.
-    // #[clap(short, long)]
-    // pub kill_others: bool,
+    #[clap(short, long)]
+    pub kill_others: bool,
 
     /// Kill other processes if one exits with non zero
     /// status code.

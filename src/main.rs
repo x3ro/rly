@@ -14,8 +14,8 @@ use clap::{CommandFactory, Parser};
 use command::*;
 use log::{debug, error, trace};
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinSet;
 
 use crate::cli::Args;
@@ -55,6 +55,11 @@ async fn event_loop(
 ) -> Result<()> {
     let processes_alive = AtomicUsize::new(0);
     let mut processes: JoinSet<Result<()>> = JoinSet::new();
+    let mut kill_channels: Vec<Option<oneshot::Sender<()>>> =
+        Vec::with_capacity(config.commands.len());
+    for _ in 0..config.commands.len() {
+        kill_channels.push(None);
+    }
 
     for (command_idx, _) in config.commands.iter().enumerate() {
         tx_orig
@@ -72,8 +77,6 @@ async fn event_loop(
                 command_idx,
                 is_restart,
             } => {
-                trace!("Spawning command {command_idx}");
-
                 let cmd = config.commands.get(command_idx).unwrap();
                 let mut child = cmd.tokio_command().spawn().expect("Failed to spawn child");
 
@@ -81,6 +84,7 @@ async fn event_loop(
                     .id()
                     .expect("Successfully spawned child should have a PID");
                 cmd.pid.store(pid, Ordering::Relaxed);
+                debug!("Spawned command {cmd}");
 
                 let stdout = child
                     .stdout
@@ -95,41 +99,60 @@ async fn event_loop(
                 // This is the task that handles the child's stdout
                 let tx = tx_orig.clone();
                 processes.spawn(async move {
-                    trace!("stdout reader task for {pid} started");
+                    trace!("stdout reader task for {cmd} started");
 
                     let mut reader = BufReader::new(stdout).lines();
                     while let Some(line) = reader.next_line().await? {
                         tx.send(Event::Output { line, command_idx }).await?
                     }
 
-                    trace!("stdout reader task for {pid} stopped");
+                    trace!("stdout reader task for {cmd} stopped");
                     Ok(())
                 });
 
                 // This is the task that handles the child's stderr
                 let tx = tx_orig.clone();
                 processes.spawn(async move {
-                    trace!("stderr reader task for {pid} started");
+                    trace!("stderr reader task for {cmd} started");
 
                     let mut reader = BufReader::new(stderr).lines();
                     while let Some(line) = reader.next_line().await? {
                         tx.send(Event::Output { line, command_idx }).await?
                     }
 
-                    trace!("stderr reader task for {pid} stopped");
+                    trace!("stderr reader task for {cmd} stopped");
                     Ok(())
                 });
 
                 // This is the task that waits for the child's exit status
+                let (kill_tx, kill_rx) = oneshot::channel::<()>();
+                kill_channels[command_idx] = Some(kill_tx);
                 let tx = tx_orig.clone();
                 processes.spawn(async move {
-                    let status = child.wait().await?;
-                    trace!("Task with pid {pid} stopped with {status}");
-                    tx.send(Event::Exit {
-                        command_idx,
-                        status,
-                    })
-                    .await?;
+                    tokio::select! {
+                        status = child.wait() => {
+                            let status = status?;
+                            trace!("Task with pid {pid} exited with {status}");
+
+                            tx.send(Event::Exit {
+                                command_idx,
+                                status,
+                            })
+                            .await?;
+                        }
+
+                        _ = kill_rx => {
+                            trace!("Received kill signal for {cmd}");
+                            child.start_kill()?;
+                            let status = child.wait().await?;
+
+                            debug!("{cmd} killed with {status}");
+                            tx.send(Event::Exit {
+                                command_idx,
+                                status,
+                            }).await?;
+                        }
+                    }
 
                     Ok(())
                 });
@@ -156,7 +179,7 @@ async fn event_loop(
 
                 // -1 because `fetch_sub` returns the state _before_ the subtraction operation
                 let num_processes = processes_alive.fetch_sub(1, Ordering::Relaxed) - 1;
-                trace!("Alive processes: {}", num_processes);
+                debug!("{cmd} exited. Alive processes now: {}", num_processes);
 
                 // We're mirroring the behaviour of concurrently, where restarts only happen if
                 // the process exited with a non-success code. This seems to make sense, but maybe
@@ -178,6 +201,17 @@ async fn event_loop(
                         .await
                         .context("Failed to send spawn message")
                     });
+                } else if config.args.kill_others && !kill_channels.is_empty() {
+                    // TODO: We're currently sending SIGKILL, but it would probably be
+                    //       preferable to send SIGTERM instead. Tokio does not support
+                    //       this out of the box, though. Maybe use the `nix` crate?
+                    //       See also: https://stackoverflow.com/a/58156963/124257
+                    println!("--> Sending SIGKILL to other processes..");
+                    for mut opt in kill_channels.drain(..) {
+                        if let Some(tx) = opt.take() {
+                            tx.send(()).unwrap_or(());
+                        }
+                    }
                 } else if num_processes < 1 {
                     debug!("No more processes. Stopping main loop.");
                     break;
@@ -185,6 +219,8 @@ async fn event_loop(
             }
         }
     }
+
+    trace!("Main event loop has stopped.");
 
     // Why need to drop the sending end of this channel, so that the receiving end will
     // close once all messages have been delivered. If we don't drop this end here, the
