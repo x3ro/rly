@@ -74,8 +74,7 @@ pub struct Args {
     ///   underline, inverse, hidden, strikethrough
     ///
     /// - Available colors: black, red, green, yellow, blue,
-    ///   magenta, cyan, white, gray,
-    ///   any hex values for colors (e.g. #23de43) or auto for
+    ///   magenta, cyan, white, gray or auto for
     ///   an automatically picked color
     ///
     /// - Available background colors: bgBlack, bgRed,
