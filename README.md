@@ -11,6 +11,14 @@ $ rly --names "server,client" \
 [client] echo 'foo' | nc localhost 1234 exited with exit status: 0
 ```
 
+## Installation
+
+Currently you need to have rust installed in order to install `rly`: 
+
+```
+cargo install rly
+```
+
 ## Usage (in progress)
 
 ```
