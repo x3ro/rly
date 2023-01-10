@@ -1,4 +1,4 @@
-# rly
+# r[un concurrent]ly 
 
 `rly` is a concurrent task runner and, in its current form, essentially a clone of [concurrently](https://github.com/open-cli-tools/concurrently). For example:
 
