@@ -187,6 +187,35 @@ fn it_supports_colors() {
 }
 
 #[test]
+fn it_supports_auto_colors() {
+    let (dir, mut cmd) = setup("it_supports_auto_colors");
+    dir.create("some-file", "some-file-contents");
+
+    let out = cmd
+        .arg("cat some-file")
+        .arg("sleep 0.1; echo foo")
+        .arg("sleep 0.2; echo bar")
+        .args(&["--prefix-colors", "auto"])
+        .stdout();
+
+    let expected_prefix_0 = "\u{1b}[31m[0]\u{1b}[0m";
+    let expected_prefix_1 = "\u{1b}[32m[1]\u{1b}[0m";
+    let expected_prefix_2 = "\u{1b}[33m[2]\u{1b}[0m";
+    let expected = format!(
+        "{0} some-file-contents
+{0} cat some-file exited with exit status: 0
+{1} foo
+{1} sleep 0.1; echo foo exited with exit status: 0
+{2} bar
+{2} sleep 0.2; echo bar exited with exit status: 0
+",
+        expected_prefix_0, expected_prefix_1, expected_prefix_2
+    );
+
+    assert_str_eq!(escape_debug_by_line(expected), escape_debug_by_line(out));
+}
+
+#[test]
 fn it_does_not_restart_on_success() {
     let (dir, mut cmd) = setup("it_does_not_restart_on_success");
     dir.create("some-file", "some-file-contents");

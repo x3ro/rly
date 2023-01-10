@@ -101,7 +101,7 @@ impl Commands {
             .replace("{name}", config.names.get(idx).unwrap());
 
         if !config.args.no_color {
-            prefix = colorize(config.prefix_colors.get(idx).unwrap(), &prefix)?;
+            prefix = colorize(idx, config.prefix_colors.get(idx).unwrap(), &prefix)?;
         }
 
         let command = Command {
