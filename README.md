@@ -137,7 +137,7 @@ I like the UX of `concurrently`, but dislike having to install NodeJS / npm to u
 - [x] commands can be supplied
 - [x] `--names` can be passed
 - [x] `--name-separator`
-- [ ] `--raw`
+- [x] `--raw`
 - [x] `--no-color`
 - [ ] `--hide`
 - [ ] `--timings`

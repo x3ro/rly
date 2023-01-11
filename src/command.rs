@@ -14,6 +14,7 @@ pub struct Commands;
 pub struct Command {
     prefix: String,
     timestamp_format: String,
+    raw: bool,
 
     pub command: String,
     pub pid: AtomicU32,
@@ -45,11 +46,12 @@ impl Command {
 
     pub fn tokio_command(&self) -> TokioCommand {
         let mut runnable = tokio::process::Command::new("sh");
-        runnable
-            .arg("-c")
-            .arg(&self.command)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+        runnable.arg("-c").arg(&self.command);
+
+        if !self.raw {
+            runnable.stdout(Stdio::piped()).stderr(Stdio::piped());
+        }
+
         runnable
     }
 
@@ -117,6 +119,7 @@ impl Commands {
 
         let command = Command {
             prefix,
+            raw: config.args.raw,
             timestamp_format: config.args.timestamp_format.clone(),
             command: cmd.as_ref().to_string(),
             pid: Default::default(),

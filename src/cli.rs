@@ -31,10 +31,10 @@ pub struct Args {
     #[clap(long, default_value = ",")]
     pub name_separator: char,
 
-    /// Output only raw output of processes, disables
-    /// prettifying and concurrently coloring.
-    // #[clap(short, long)]
-    // pub raw: bool,
+    // Output only raw output of processes, disables
+    // prettifying and concurrently coloring.
+    #[clap(short, long)]
+    pub raw: bool,
 
     /// Disables colors from logging.
     #[clap(long, default_value = "false")]

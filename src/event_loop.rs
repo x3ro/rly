@@ -10,6 +10,14 @@ use tokio::task::JoinSet;
 
 use crate::{Command, Config};
 
+macro_rules! rly_println {
+    ($config:expr, $($arg:tt)*) => {{
+        if !$config.args.raw {
+            println!($($arg)*);
+        }
+    }};
+}
+
 #[derive(Debug)]
 enum Event {
     Spawn {
@@ -79,7 +87,7 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
 
             Event::Output { command_idx, line } => {
                 let cmd = config.commands.get(command_idx).unwrap();
-                println!("{} {}", cmd.prefix(), line);
+                rly_println!(state.config, "{} {}", cmd.prefix(), line);
             }
 
             Event::Exit {
@@ -88,7 +96,13 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
             } => {
                 let cmd = config.commands.get(command_idx).unwrap();
                 let full_command = config.args.commands.get(command_idx).unwrap();
-                println!("{} {} exited with {}", cmd.prefix(), full_command, status);
+                rly_println!(
+                    state.config,
+                    "{} {} exited with {}",
+                    cmd.prefix(),
+                    full_command,
+                    status
+                );
 
                 // -1 because `fetch_sub` returns the state _before_ the subtraction operation
                 let num_processes = state.children_alive.fetch_sub(1, Ordering::Relaxed) - 1;
@@ -115,7 +129,7 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
                         .context("Failed to send spawn message")
                     });
                 } else if should_kill_others(&state, &status) {
-                    println!("--> Sending SIGKILL to other processes..");
+                    rly_println!(state.config, "--> Sending SIGKILL to other processes..");
                     for mut opt in state.kill_channels.drain(..) {
                         if let Some(tx) = opt.take() {
                             tx.send(()).unwrap_or(());
@@ -159,7 +173,7 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
         match event {
             Event::Output { command_idx, line } => {
                 let cmd = config.commands.get(command_idx).unwrap();
-                println!("{} {}", cmd.prefix(), line);
+                rly_println!(config, "{} {}", cmd.prefix(), line);
             }
             x => {
                 error!("{:?}", x)
@@ -206,31 +220,33 @@ async fn handle_spawn_event(state: &mut State, command_idx: usize, is_restart: b
     cmd.pid.store(pid, Ordering::Relaxed);
     debug!("Spawned command {cmd}");
 
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| anyhow!("Failed to acquire stdout handle"))?;
+    if !state.config.args.raw {
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow!("Failed to acquire stdout handle"))?;
 
-    state.task_set.spawn(output_listener(
-        "stdout",
-        command_idx,
-        cmd,
-        stdout,
-        state.tx.clone(),
-    ));
+        state.task_set.spawn(output_listener(
+            "stdout",
+            command_idx,
+            cmd,
+            stdout,
+            state.tx.clone(),
+        ));
 
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or_else(|| anyhow!("Failed to acquire stderr handle"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow!("Failed to acquire stderr handle"))?;
 
-    state.task_set.spawn(output_listener(
-        "stderr",
-        command_idx,
-        cmd,
-        stderr,
-        state.tx.clone(),
-    ));
+        state.task_set.spawn(output_listener(
+            "stderr",
+            command_idx,
+            cmd,
+            stderr,
+            state.tx.clone(),
+        ));
+    }
 
     // This is the task that waits for the child's exit status
     let (kill_tx, kill_rx) = oneshot::channel::<()>();
@@ -273,7 +289,7 @@ async fn handle_spawn_event(state: &mut State, command_idx: usize, is_restart: b
     state.children_alive.fetch_add(1, Ordering::SeqCst);
     if is_restart {
         let full_command = state.config.args.commands.get(command_idx).unwrap();
-        println!("{} {} restarted", cmd.prefix(), full_command);
+        rly_println!(state.config, "{} {} restarted", cmd.prefix(), full_command);
     }
 
     Ok(())
