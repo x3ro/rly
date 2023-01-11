@@ -236,19 +236,19 @@ fn it_does_not_restart_on_success() {
 fn it_supports_restarting() {
     let (_, mut cmd) = setup("it_supports_restarting");
     let out = cmd
-        .arg("ls /this-directory-does-not-exist")
+        .arg("echo 'hello world'; exit 1")
         .args(&["--restart-tries", "2"])
         .stdout();
 
     let expected = format!(
-        "[0] ls: /this-directory-does-not-exist: No such file or directory
-[0] ls /this-directory-does-not-exist exited with exit status: 1
-[0] ls /this-directory-does-not-exist restarted
-[0] ls: /this-directory-does-not-exist: No such file or directory
-[0] ls /this-directory-does-not-exist exited with exit status: 1
-[0] ls /this-directory-does-not-exist restarted
-[0] ls: /this-directory-does-not-exist: No such file or directory
-[0] ls /this-directory-does-not-exist exited with exit status: 1
+        "[0] hello world
+[0] echo 'hello world'; exit 1 exited with exit status: 1
+[0] echo 'hello world'; exit 1 restarted
+[0] hello world
+[0] echo 'hello world'; exit 1 exited with exit status: 1
+[0] echo 'hello world'; exit 1 restarted
+[0] hello world
+[0] echo 'hello world'; exit 1 exited with exit status: 1
 "
     );
 
