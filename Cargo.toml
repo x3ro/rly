@@ -4,7 +4,7 @@ description = "Run shell commands concurrently with ease. Currently only a CLI t
 readme = "README.md"
 authors = ["Lucas Jenß <crates-io@x3ro.de>"]
 license = "Apache-2.0"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 repository = "https://github.com/x3ro/rly"
 
