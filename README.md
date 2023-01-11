@@ -4,11 +4,13 @@
 
 ```
 $ rly --names "server,client" \
-    "nc -l 1234" \
-    "echo 'message from client' | nc localhost 1234"
+      --kill-others \
+      "nc -lk 1234" \
+      "echo 'message from client' | nc localhost 1234"
 [server] message from client
-[server] nc -l 1234 exited with exit status: 0
-[client] echo 'foo' | nc localhost 1234 exited with exit status: 0
+[client] echo 'message from client' | nc localhost 1234 exited with exit status: 0
+--> Sending SIGKILL to other processes..
+[server] nc -lk 1234 exited with signal: 9 (SIGKILL)
 ```
 
 ## Installation
