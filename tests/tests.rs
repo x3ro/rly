@@ -1,6 +1,4 @@
-use pretty_assertions::assert_str_eq;
-
-use crate::util::setup;
+use crate::util::{assert_eq_lines_unordered, setup};
 
 #[macro_use]
 mod util;
@@ -23,7 +21,7 @@ fn it_runs_a_single_basic_command() {
 [0] ls exited with exit status: 0
 "#;
 
-    assert_str_eq!(expected, out);
+    assert_eq_lines_unordered(expected, out);
 }
 
 #[test]
@@ -44,7 +42,7 @@ fn it_runs_a_basic_command() {
 [1] sleep 0.1; cat some-file; exit 1 exited with exit status: 1
 "#;
 
-    assert_str_eq!(expected, out);
+    assert_eq_lines_unordered(expected, out);
 }
 
 #[test]
@@ -66,7 +64,7 @@ fn it_supports_names() {
 [cat] sleep 0.1; cat some-file; exit 1 exited with exit status: 1
 "#;
 
-    assert_str_eq!(expected, out);
+    assert_eq_lines_unordered(expected, out);
 }
 
 #[test]
@@ -91,7 +89,7 @@ fn it_repeats_last_name_if_not_enough_names_are_given() {
 [repeat] sleep 0.2; cat some-file; exit 1 exited with exit status: 1
 "#;
 
-    assert_str_eq!(expected, out);
+    assert_eq_lines_unordered(expected, out);
 }
 
 #[test]
@@ -109,7 +107,7 @@ fn it_supports_custom_prefixes() {
 [0-cat some-file] cat some-file exited with exit status: 0
 "#;
 
-    assert_str_eq!(expected, out);
+    assert_eq_lines_unordered(expected, out);
 }
 
 #[test]
@@ -133,7 +131,7 @@ fn it_supports_time_prefix() {
         expected_time
     );
 
-    assert_str_eq!(expected, out);
+    assert_eq_lines_unordered(expected, out);
 }
 
 #[test]
@@ -154,7 +152,7 @@ fn it_supports_disabling_color() {
 "#
     );
 
-    assert_str_eq!(expected, out);
+    assert_eq_lines_unordered(expected, out);
 }
 
 #[test]
@@ -183,7 +181,7 @@ fn it_supports_colors() {
         expected_prefix, expected_prefix_green_1, expected_prefix_green_2
     );
 
-    assert_str_eq!(escape_debug_by_line(expected), escape_debug_by_line(out));
+    assert_eq_lines_unordered(escape_debug_by_line(expected), escape_debug_by_line(out));
 }
 
 #[test]
@@ -212,7 +210,7 @@ fn it_supports_auto_colors() {
         expected_prefix_0, expected_prefix_1, expected_prefix_2
     );
 
-    assert_str_eq!(escape_debug_by_line(expected), escape_debug_by_line(out));
+    assert_eq_lines_unordered(escape_debug_by_line(expected), escape_debug_by_line(out));
 }
 
 #[test]
@@ -231,7 +229,7 @@ fn it_does_not_restart_on_success() {
 "#
     );
 
-    assert_str_eq!(expected, out);
+    assert_eq_lines_unordered(expected, out);
 }
 
 #[test]
@@ -254,7 +252,7 @@ fn it_supports_restarting() {
 "
     );
 
-    assert_str_eq!(expected, out);
+    assert_eq_lines_unordered(expected, out);
 }
 
 fn escape_debug_by_line(s: impl AsRef<str>) -> String {

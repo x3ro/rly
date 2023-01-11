@@ -12,6 +12,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use std::{env, error, thread};
 
+use edit_distance::edit_distance;
+use pretty_assertions::StrComparison;
+
 static TEST_DIR: &'static str = "ripgrep-tests";
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 
@@ -466,4 +469,76 @@ fn cross_runner() -> Option<String> {
         return Some(v.into_owned());
     }
     None
+}
+
+/// Compare each line of two strings individually, trying to find an exact match.
+/// If there is no match, display the diff to the closest matching line in the error.
+/// This is needed because the order of the output from `rly` is non-deterministic,
+/// and comparing the output verbatim leads to flaky tests.
+/// Note: If anyone knows of a more elegant solution for this problem, I'm all ears :)
+pub fn assert_eq_lines_unordered(expected: impl AsRef<str>, actual: impl AsRef<str>) {
+    let mut expected_lines: Vec<_> = expected.as_ref().split("\n").collect();
+    let actual_lines: Vec<_> = actual.as_ref().split("\n").collect();
+
+    //assert_eq!(expected.len(), actual.len());
+    if expected_lines.len() != actual_lines.len() {
+        panic!(
+            "\n\n=====\n\
+                 The number of lines in expected output ({}) \
+                 \ndiffered from the actual number of lines ({}) \
+                 \n\n{}
+                 \n\n=====\n",
+            expected_lines.len(),
+            actual_lines.len(),
+            StrComparison::new(expected.as_ref(), actual.as_ref()),
+        );
+    }
+
+    let mut failures = vec![];
+    for line in actual_lines {
+        let mut min_distance = usize::MAX;
+        let mut closest_line = "";
+
+        for (idx, ex) in expected_lines.iter().enumerate() {
+            let distance = edit_distance(line, ex);
+
+            // We've found an exact match, so this line from the output is fine.
+            // We remove from the `expected` Vec, because we don't want to compare
+            // against this line again.
+            if distance == 0 {
+                min_distance = 0;
+                expected_lines.remove(idx);
+                break;
+            } else if distance < min_distance {
+                min_distance = distance;
+                closest_line = ex;
+            }
+        }
+
+        // We didn't find an exact match, so this assertion will fail.
+        // We record the closest matching line, in case that helps
+        // identifying the failure.
+        if min_distance > 0 {
+            failures.push((line, closest_line));
+        }
+    }
+
+    if !failures.is_empty() {
+        let res = failures
+            .iter()
+            .map(|(a, b)| StrComparison::new(a, b).to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        panic!(
+            "\n\n=====\n\
+                The following lines did not match:\
+                \n\n {}\
+                \n\nFull output:\
+                \n\n{}
+            \n=====\n",
+            res,
+            StrComparison::new(expected.as_ref(), actual.as_ref())
+        );
+    }
 }
