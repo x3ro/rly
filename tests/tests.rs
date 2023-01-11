@@ -255,6 +255,27 @@ fn it_supports_restarting() {
     assert_eq_lines_unordered(expected, out);
 }
 
+#[test]
+fn it_does_kill_other_processes_if_one_exits() {
+    let (dir, mut cmd) = setup("it_does_kill_other_processes_if_one_exits");
+    dir.create("some-file", "some-file-contents");
+
+    let out = cmd
+        .arg("exit 1")
+        .arg("sleep 2; echo 'should not be printed'")
+        .arg("--kill-others")
+        .stdout();
+
+    let expected = format!(
+        r#"--> Sending SIGKILL to other processes..
+[0] exit 1 exited with exit status: 1
+[1] sleep 2; echo 'should not be printed' exited with signal: 9 (SIGKILL)
+"#
+    );
+
+    assert_eq_lines_unordered(expected, out);
+}
+
 fn escape_debug_by_line(s: impl AsRef<str>) -> String {
     s.as_ref()
         .escape_debug()
