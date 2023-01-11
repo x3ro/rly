@@ -114,11 +114,7 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
                         .await
                         .context("Failed to send spawn message")
                     });
-                } else if config.args.kill_others && !state.kill_channels.is_empty() {
-                    // TODO: We're currently sending SIGKILL, but it would probably be
-                    //       preferable to send SIGTERM instead. Tokio does not support
-                    //       this out of the box, though. Maybe use the `nix` crate?
-                    //       See also: https://stackoverflow.com/a/58156963/124257
+                } else if should_kill_others(&state, &status) {
                     println!("--> Sending SIGKILL to other processes..");
                     for mut opt in state.kill_channels.drain(..) {
                         if let Some(tx) = opt.take() {
@@ -131,6 +127,25 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
                 }
             }
         }
+    }
+
+    fn should_kill_others(state: &State, status: &ExitStatus) -> bool {
+        // If the kill channels are empty ,that means that we've already
+        // sent kill signals to the processes. In that case, we shouldn't
+        // try to do it again.
+        if state.kill_channels.is_empty() {
+            return false;
+        }
+
+        if state.config.args.kill_others_on_fail {
+            return !status.success();
+        }
+
+        if !state.config.args.kill_others {
+            return false;
+        }
+
+        true
     }
 
     trace!("Main event loop has stopped.");
@@ -235,6 +250,11 @@ async fn handle_spawn_event(state: &mut State, command_idx: usize, is_restart: b
             }
 
             _ = kill_rx => {
+                // TODO: We're currently sending SIGKILL, but it would probably be
+                //       preferable to send SIGTERM instead. Tokio does not support
+                //       this out of the box, though. Maybe use the `nix` crate?
+                //       See also: https://stackoverflow.com/a/58156963/124257
+
                 trace!("Received kill signal for {cmd}");
                 child.start_kill()?;
                 let status = child.wait().await?;

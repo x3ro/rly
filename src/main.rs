@@ -29,6 +29,14 @@ async fn main() -> Result<()> {
     pretty_env_logger::init();
 
     let args: Args = Args::parse();
+    if args.kill_others && args.kill_others_on_fail {
+        bail!(
+            "\nYou supplied both --kill-others and --kill-others-on-fail,\
+             \nbut the the latter is implied by the former. Please only \
+             \nprovide one of these options"
+        )
+    }
+
     let config: &'static Config = Box::leak(Box::new(args.try_into()?));
     debug!("{:#?}", config);
 

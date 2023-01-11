@@ -101,8 +101,8 @@ pub struct Args {
 
     /// Kill other processes if one exits with non zero
     /// status code.
-    // #[clap(long)]
-    // pub kill_others_on_fail: bool,
+    #[clap(long)]
+    pub kill_others_on_fail: bool,
 
     /// How many times a process that died should restart.
     /// Negative numbers will make the process restart forever.

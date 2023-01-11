@@ -256,20 +256,62 @@ fn it_supports_restarting() {
 }
 
 #[test]
-fn it_does_kill_other_processes_if_one_exits() {
-    let (dir, mut cmd) = setup("it_does_kill_other_processes_if_one_exits");
+fn it_kills_others_on_exit_0() {
+    let (dir, mut cmd) = setup("kill_others_triggers_on_exit_0");
     dir.create("some-file", "some-file-contents");
 
     let out = cmd
-        .arg("exit 1")
-        .arg("sleep 2; echo 'should not be printed'")
+        .arg("exit 0")
+        .arg("sleep 0.2; echo 'should not be printed'")
         .arg("--kill-others")
         .stdout();
 
     let expected = format!(
-        r#"--> Sending SIGKILL to other processes..
-[0] exit 1 exited with exit status: 1
-[1] sleep 2; echo 'should not be printed' exited with signal: 9 (SIGKILL)
+        r#"[0] exit 0 exited with exit status: 0
+--> Sending SIGKILL to other processes..
+[1] sleep 0.2; echo 'should not be printed' exited with signal: 9 (SIGKILL)
+"#
+    );
+
+    assert_eq_lines_unordered(expected, out);
+}
+
+#[test]
+fn it_doesnt_kill_others_on_fail_on_exit_code_0() {
+    let (dir, mut cmd) = setup("kill_others_on_fail_does_not_trigger_on_exit_code_0");
+    dir.create("some-file", "some-file-contents");
+
+    let out = cmd
+        .arg("exit 0")
+        .arg("sleep 0.2; echo 'should be printed'")
+        .arg("--kill-others-on-fail")
+        .stdout();
+
+    let expected = format!(
+        r#"[0] exit 0 exited with exit status: 0
+[1] should be printed
+[1] sleep 0.2; echo 'should be printed' exited with exit status: 0
+"#
+    );
+
+    assert_eq_lines_unordered(expected, out);
+}
+
+#[test]
+fn it_does_kill_others_on_fail_on_exit_code_1() {
+    let (dir, mut cmd) = setup("kill_others_on_fail_does_not_trigger_on_exit_code_0");
+    dir.create("some-file", "some-file-contents");
+
+    let out = cmd
+        .arg("exit 1")
+        .arg("sleep 0.2; echo 'should not be printed'")
+        .arg("--kill-others-on-fail")
+        .stdout();
+
+    let expected = format!(
+        r#"[0] exit 1 exited with exit status: 1
+--> Sending SIGKILL to other processes..
+[1] sleep 0.2; echo 'should not be printed' exited with signal: 9 (SIGKILL)
 "#
     );
 

@@ -151,8 +151,8 @@ I like the UX of `concurrently`, but dislike having to install NodeJS / npm to u
 - [x] `--prefix-colors`
 - [x] `--prefix-length`
 - [x] `--timestamp-format`
-- [ ] `--kill-others`
-- [ ] `--kill-others-on-fail`
+- [x] `--kill-others`
+- [x] `--kill-others-on-fail`
 - [x] `--restart-tries`
 - [x] `--restart-after`
 
