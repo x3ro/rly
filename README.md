@@ -1,4 +1,9 @@
-# r[un concurrent]ly 
+<p align="center">
+  <h1>r[un concurrent]ly</h1>
+  <a href="https://github.com/x3ro/rly/actions/workflows/ci.yml"><img src="https://github.com/x3ro/rly/actions/workflows/ci.yml/badge.svg?branch=main" alt="Build Status"></a>
+  <img src="https://img.shields.io/crates/l/rly.svg" alt="license">
+  <a href="https://crates.io/crates/rly"><img src="https://img.shields.io/crates/v/rly.svg?colorB=319e8c" alt="Version info"></a><br>
+</p>
 
 `rly` is a concurrent task runner and, in its current form, essentially a clone of [concurrently](https://github.com/open-cli-tools/concurrently). For example:
 
