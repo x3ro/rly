@@ -12,7 +12,7 @@ use crate::{Command, Config};
 
 macro_rules! rly_println {
     ($config:expr, $($arg:tt)*) => {{
-        if !$config.args.raw {
+        if !$config.raw {
             println!($($arg)*);
         }
     }};
@@ -95,7 +95,7 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
                 status,
             } => {
                 let cmd = config.commands.get(command_idx).unwrap();
-                let full_command = config.args.commands.get(command_idx).unwrap();
+                let full_command = &config.commands.get(command_idx).unwrap().command;
                 rly_println!(
                     state.config,
                     "{} {} exited with {}",
@@ -151,11 +151,11 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
             return false;
         }
 
-        if state.config.args.kill_others_on_fail {
+        if state.config.kill_others_on_fail {
             return !status.success();
         }
 
-        if !state.config.args.kill_others {
+        if !state.config.kill_others {
             return false;
         }
 
@@ -220,7 +220,7 @@ async fn handle_spawn_event(state: &mut State, command_idx: usize, is_restart: b
     cmd.pid.store(pid, Ordering::Relaxed);
     debug!("Spawned command {cmd}");
 
-    if !state.config.args.raw {
+    if !state.config.raw {
         let stdout = child
             .stdout
             .take()
@@ -288,7 +288,7 @@ async fn handle_spawn_event(state: &mut State, command_idx: usize, is_restart: b
 
     state.children_alive.fetch_add(1, Ordering::SeqCst);
     if is_restart {
-        let full_command = state.config.args.commands.get(command_idx).unwrap();
+        let full_command = &state.config.commands.get(command_idx).unwrap().command;
         rly_println!(state.config, "{} {} restarted", cmd.prefix(), full_command);
     }
 

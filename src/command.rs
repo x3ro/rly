@@ -89,42 +89,39 @@ impl Command {
 }
 
 impl Commands {
-    pub fn from(config: &Config) -> Result<Vec<Command>> {
-        let args = &config.args;
-        let commands: Vec<Command> = args
-            .commands
+    pub fn from(config: &Config, commands: &[String]) -> Result<Vec<Command>> {
+        let commands: Vec<Command> = commands
             .iter()
             .enumerate()
             .map(|(idx, cmd)| Self::prepare_command(config, idx, cmd))
             .collect::<Result<Vec<_>>>()
-            .with_context(|| format!("Failed to parse given commands: {:?}", args.commands))?;
+            .with_context(|| format!("Failed to parse given commands: {:?}", commands))?;
 
         Ok(commands)
     }
 
     fn prepare_command(config: &Config, idx: usize, cmd: impl AsRef<str>) -> Result<Command> {
         let mut prefix = config
-            .args
             .prefix
             .replace("{index}", &format!("{}", idx))
             .replace(
                 "{command}",
-                &Command::shorten(config.args.prefix_length, cmd.as_ref()),
+                &Command::shorten(config.prefix_length, cmd.as_ref()),
             )
             .replace("{name}", config.names.get(idx).unwrap());
 
-        if !config.args.no_color {
+        if !config.no_color {
             prefix = colorize(idx, config.prefix_colors.get(idx).unwrap(), &prefix)?;
         }
 
         let command = Command {
             prefix,
-            raw: config.args.raw,
-            timestamp_format: config.args.timestamp_format.clone(),
+            raw: config.raw,
+            timestamp_format: config.timestamp_format.clone(),
             command: cmd.as_ref().to_string(),
             pid: Default::default(),
-            restart_tries: AtomicI32::new(config.args.restart_tries),
-            restart_indefinitely: config.args.restart_tries < 0,
+            restart_tries: AtomicI32::new(config.restart_tries),
+            restart_indefinitely: config.restart_tries < 0,
         };
 
         Ok(command)
