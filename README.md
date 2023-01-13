@@ -146,7 +146,8 @@ I like the UX of `concurrently`, but dislike having to install NodeJS / npm to u
 - [x] `--name-separator`
 - [x] `--raw`
 - [x] `--no-color`
-- [ ] `--hide`
+- [x] `--hide`
+- [ ] `--group`
 - [ ] `--timings`
 - [ ] `--passthrough-arguments`
 - [x] `--prefix`

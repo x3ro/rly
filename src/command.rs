@@ -14,7 +14,8 @@ pub struct Commands;
 pub struct Command {
     prefix: String,
     timestamp_format: String,
-    raw: bool,
+    pub raw: bool,
+    pub hide: bool,
 
     pub command: String,
     pub pid: AtomicU32,
@@ -101,6 +102,10 @@ impl Commands {
     }
 
     fn prepare_command(config: &Config, idx: usize, cmd: impl AsRef<str>) -> Result<Command> {
+        let name = config.names.get(idx).unwrap();
+        let idx_str = idx.to_string();
+        let hide = config.hide.contains(name) || config.hide.contains(&idx_str);
+
         let mut prefix = config
             .prefix
             .replace("{index}", &format!("{}", idx))
@@ -108,7 +113,7 @@ impl Commands {
                 "{command}",
                 &Command::shorten(config.prefix_length, cmd.as_ref()),
             )
-            .replace("{name}", config.names.get(idx).unwrap());
+            .replace("{name}", name);
 
         if !config.no_color {
             prefix = colorize(idx, config.prefix_colors.get(idx).unwrap(), &prefix)?;
@@ -116,6 +121,7 @@ impl Commands {
 
         let command = Command {
             prefix,
+            hide,
             raw: config.raw,
             timestamp_format: config.timestamp_format.clone(),
             command: cmd.as_ref().to_string(),

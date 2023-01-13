@@ -42,9 +42,9 @@ pub struct Args {
 
     /// Comma-separated list of processes for which to
     /// hide the output. The processes can be identified
-    /// by their name or index.
-    // #[clap(long)]
-    // pub hide: Option<String>,
+    /// by their name or index (if no names are used).
+    #[clap(long)]
+    pub hide: Option<String>,
 
     /// Order the output as if the commands were run sequentially.
     // #[clap(short, long)]

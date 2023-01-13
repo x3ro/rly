@@ -318,6 +318,38 @@ fn it_does_kill_others_on_fail_on_exit_code_1() {
     assert_eq_lines_unordered(expected, out);
 }
 
+#[test]
+fn it_supports_hiding() {
+    let (dir, mut cmd) = setup("it_supports_hiding");
+    dir.create("some-file", "some-file-contents");
+
+    let out = cmd.arg("cat some-file").args(&["--hide", "0"]).stdout();
+
+    // No output if all commands are hidden
+    assert_eq_lines_unordered("", out);
+}
+
+#[test]
+fn it_supports_hiding_by_name() {
+    let (dir, mut cmd) = setup("it_supports_hiding_by_name");
+    dir.create("some-file", "some-file-contents");
+
+    let out = cmd
+        .arg("cat some-file")
+        .arg("ls")
+        .args(&["--hide", "cat"])
+        .args(&["--names", "cat,ls"])
+        .stdout();
+
+    let expected = format!(
+        r#"[ls] some-file
+[ls] ls exited with exit status: 0
+"#
+    );
+
+    assert_eq_lines_unordered(expected, out);
+}
+
 fn escape_debug_by_line(s: impl AsRef<str>) -> String {
     s.as_ref()
         .escape_debug()

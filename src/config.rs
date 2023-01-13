@@ -8,6 +8,7 @@ pub struct Config {
     pub names: Vec<String>,
     pub prefix_colors: Vec<String>,
     pub restart_after: Duration,
+    pub hide: Vec<String>,
 
     pub prefix: String,
     pub raw: bool,
@@ -42,9 +43,15 @@ impl TryFrom<Args> for Config {
         let prefix_colors: Vec<_> = maybe_repeat(&args.prefix_colors, ',', args.commands.len());
         let restart_after = Duration::from_millis(args.restart_after);
 
+        let hide = args
+            .hide
+            .map(|x| x.split(',').map(|s| s.to_string()).collect())
+            .unwrap_or_else(Vec::new);
+
         let mut config = Config {
             commands: vec![],
             names,
+            hide,
             prefix_colors,
             restart_after,
             prefix: args.prefix,

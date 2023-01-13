@@ -11,8 +11,8 @@ use tokio::task::JoinSet;
 use crate::{Command, Config};
 
 macro_rules! rly_println {
-    ($config:expr, $($arg:tt)*) => {{
-        if !$config.raw {
+    ($cmd:expr, $($arg:tt)*) => {{
+        if !$cmd.raw && !$cmd.hide {
             println!($($arg)*);
         }
     }};
@@ -87,7 +87,7 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
 
             Event::Output { command_idx, line } => {
                 let cmd = config.commands.get(command_idx).unwrap();
-                rly_println!(state.config, "{} {}", cmd.prefix(), line);
+                rly_println!(cmd, "{} {}", cmd.prefix(), line);
             }
 
             Event::Exit {
@@ -97,7 +97,7 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
                 let cmd = config.commands.get(command_idx).unwrap();
                 let full_command = &config.commands.get(command_idx).unwrap().command;
                 rly_println!(
-                    state.config,
+                    cmd,
                     "{} {} exited with {}",
                     cmd.prefix(),
                     full_command,
@@ -129,7 +129,7 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
                         .context("Failed to send spawn message")
                     });
                 } else if should_kill_others(&state, &status) {
-                    rly_println!(state.config, "--> Sending SIGKILL to other processes..");
+                    rly_println!(cmd, "--> Sending SIGKILL to other processes..");
                     for mut opt in state.kill_channels.drain(..) {
                         if let Some(tx) = opt.take() {
                             tx.send(()).unwrap_or(());
@@ -173,7 +173,7 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
         match event {
             Event::Output { command_idx, line } => {
                 let cmd = config.commands.get(command_idx).unwrap();
-                rly_println!(config, "{} {}", cmd.prefix(), line);
+                rly_println!(cmd, "{} {}", cmd.prefix(), line);
             }
             x => {
                 error!("{:?}", x)
@@ -288,8 +288,7 @@ async fn handle_spawn_event(state: &mut State, command_idx: usize, is_restart: b
 
     state.children_alive.fetch_add(1, Ordering::SeqCst);
     if is_restart {
-        let full_command = &state.config.commands.get(command_idx).unwrap().command;
-        rly_println!(state.config, "{} {} restarted", cmd.prefix(), full_command);
+        rly_println!(cmd, "{} {} restarted", cmd.prefix(), cmd.command);
     }
 
     Ok(())
