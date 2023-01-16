@@ -7,7 +7,7 @@
 
 `rly` is a concurrent task runner and, in its current form, essentially a clone of [concurrently](https://github.com/open-cli-tools/concurrently). For example:
 
-```
+```bash
 $ rly --names "server,client" \
       --kill-others \
       "nc -lk 1234" \
@@ -28,7 +28,7 @@ cargo install rly
 
 ## Usage (in progress)
 
-```
+```text
 Usage: rly [OPTIONS] [COMMANDS]...
 
 Arguments:

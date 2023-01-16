@@ -16,7 +16,7 @@ pub struct Args {
     #[clap(short, long)]
     pub names: Option<String>,
 
-    /// The character to split <names> on.
+    /// The character to split \<names\> on.
     ///
     /// Example usage:
     /// -n "styles|scripts|server" --name-separator "|"
@@ -71,7 +71,7 @@ pub struct Args {
     /// - Available background colors: bgBlack, bgRed,
     ///   bgGreen, bgYellow, bgBlue, bgMagenta, bgCyan, bgWhite
     ///
-    /// See https://www.npmjs.com/package/chalk for more
+    /// See <https://www.npmjs.com/package/chalk> for more
     /// information.
     #[clap(short = 'c', long, default_value = "reset")]
     pub prefix_colors: String,
