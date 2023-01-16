@@ -10,13 +10,28 @@ pub struct Config {
     pub restart_after: Duration,
     pub hide: Vec<String>,
 
+    /// See [`Args::prefix`]
     pub prefix: String,
+
+    /// See [`Args::raw`]
     pub raw: bool,
+
+    /// See [`Args::prefix_length`]
     pub prefix_length: usize,
+
+    /// See [`Args::no_color`]
     pub no_color: bool,
+
+    /// See [`Args::timestamp_format`]
     pub timestamp_format: String,
+
+    /// See [`Args::restart_tries`]
     pub restart_tries: i32,
+
+    /// See [`Args::kill_others`]
     pub kill_others: bool,
+
+    /// See [`Args::kill_others_on_fail`]
     pub kill_others_on_fail: bool,
 }
 

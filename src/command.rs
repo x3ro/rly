@@ -8,19 +8,40 @@ use tokio::process::Command as TokioCommand;
 use crate::colors::colorize;
 use crate::config::Config;
 
-pub struct Commands;
-
+/// Holds the information needed to spawn a single process
+/// and format its output.
 #[derive(Debug)]
 pub struct Command {
-    prefix: String,
-    timestamp_format: String,
+    /// If this flag is true, output from the spawned process
+    /// will not be intercepted by `rly`, and printed verbatim
+    /// to stdout/stderr of the calling process.
     pub raw: bool,
+
+    /// If this flag is true, output from the spawned process
+    /// will not be displayed at all.
     pub hide: bool,
 
+    /// The full command to be executed, including all arguments.
+    /// E.g. `"cat some-file | wc -l"`
     pub command: String,
+
+    /// PID of the currently running process. Note that
+    /// - this may be zero in case no process has been spawned yet
+    /// - this value can change, e.g. in case a process is restarted
     pub pid: AtomicU32,
+
+    /// If this flag is set, the process will always be restarted
+    /// irrespective of the value in [`Command::restart_tries`].
     pub restart_indefinitely: bool,
+
+    /// See [`crate::cli::Args::restart_tries`]
     pub restart_tries: AtomicI32,
+
+    /// See [`crate::cli::Args::prefix`]
+    prefix: String,
+
+    /// See [`crate::cli::Args::timestamp_format`]
+    timestamp_format: String,
 }
 
 impl std::fmt::Display for Command {
@@ -88,6 +109,9 @@ impl Command {
         format!("{}{}{}", left, ELLIPSIS, right)
     }
 }
+
+/// Helper to generate a list of [`Command`]s from a [`crate::Config`]
+pub struct Commands;
 
 impl Commands {
     pub fn from(config: &Config, commands: &[String]) -> Result<Vec<Command>> {

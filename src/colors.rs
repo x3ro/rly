@@ -64,6 +64,8 @@ fn apply_modifier_by_name(input: ColoredString, modifier: &str) -> Result<Colore
     Ok(result)
 }
 
+/// Apply terminal colors to the given `input`, based on the `format`
+/// (as documented in [`crate::cli::Args::prefix_colors`]
 pub fn colorize(command_idx: usize, format: &str, input: &str) -> Result<String> {
     let mut result = input.clear();
     for modifier in format.split('.') {

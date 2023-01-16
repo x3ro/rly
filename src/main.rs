@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 extern crate core;
 
 mod cli;
@@ -14,15 +15,6 @@ use log::debug;
 use crate::cli::Args;
 use crate::config::Config;
 use crate::event_loop::event_loop;
-
-#[allow(dead_code)]
-fn expand(param: impl AsRef<str>) -> String {
-    let parts: Vec<&str> = param.as_ref().splitn(2, ':').collect();
-    match parts.as_slice() {
-        ["cargo", cmd] => format!("cargo run --color always --package {}", cmd),
-        _ => param.as_ref().to_string(),
-    }
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {

@@ -4,14 +4,6 @@ use clap::Parser;
 // the `concurrently` project, which is MIT licensed and
 // Copyright (c) by Kimmo Brunfeldt (and possible contributors)
 
-// #[derive(Foo, Debug, Default, PartialEq)]
-// #[clap(next_help_heading = "HEADING A")]
-// struct Foobar {
-//     /// WAT
-//     #[clap(short, long)]
-//     wobbel: String,
-// }
-
 #[derive(Parser, Debug, Default, PartialEq)]
 #[clap(about, version, author)]
 pub struct Args {
@@ -46,20 +38,19 @@ pub struct Args {
     #[clap(long)]
     pub hide: Option<String>,
 
-    /// Order the output as if the commands were run sequentially.
+    // Order the output as if the commands were run sequentially.
     // #[clap(short, long)]
     // group: bool,
 
-    /// Show timing information for all processes.
+    // Show timing information for all processes.
     // #[clap(long)]
     // pub timings: bool,
 
-    /// Passthrough additional arguments to commands
-    /// (accessible via placeholders) instead of treating
-    /// them as commands.
+    // Passthrough additional arguments to commands
+    // (accessible via placeholders) instead of treating
+    // them as commands.
     // #[clap(short = 'P', long)]
     // pub passthrough_arguments: bool,
-
     /// Prefix used in logging for each process.
     /// Possible values: index, pid, time, command, name,
     /// none, or a template. Example template: "{time}-{pid}"
@@ -112,8 +103,6 @@ pub struct Args {
     /// Delay time to respawn the process, in milliseconds.
     #[clap(long, default_value = "0")]
     pub restart_after: u64,
-    // #[clap(flatten)]
-    // wat: Foobar,
 }
 
 #[cfg(test)]
