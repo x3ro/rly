@@ -52,7 +52,7 @@ impl State {
 
 pub async fn event_loop(config: &'static Config) -> Result<()> {
     // This is the channel that is used to communicate everything that's happening
-    // in the spawned processes back here, we're output is handled.
+    // in the spawned processes back here, where output is handled.
     let (tx, mut rx) = mpsc::channel::<Event>(OUTPUT_CHANNEL_BUFFER_SIZE);
 
     let mut state = State {
