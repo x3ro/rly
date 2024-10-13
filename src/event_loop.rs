@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use anyhow::{anyhow, Context, Result};
 use log::{debug, error, trace};
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
+use tokio::signal;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinSet;
 
@@ -32,6 +33,7 @@ enum Event {
         status: ExitStatus,
         command_idx: usize,
     },
+    CtrlC,
 }
 
 const OUTPUT_CHANNEL_BUFFER_SIZE: usize = 128;
@@ -77,6 +79,20 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
             .await
             .unwrap()
     }
+
+    let ctrl_c_task = tokio::task::spawn({
+        let tx = state.tx.clone();
+        async move {
+            match signal::ctrl_c().await {
+                Ok(()) => {
+                    let _ = tx.send(Event::CtrlC).await;
+                }
+                Err(err) => {
+                    eprintln!("Unable to listen to Ctrl-C: {}", err);
+                }
+            }
+        }
+    });
 
     while let Some(event) = rx.recv().await {
         match event {
@@ -140,6 +156,16 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
                     break;
                 }
             }
+
+            Event::CtrlC => {
+                println!("Ctrl-C issued");
+                println!("Terminating all processes..");
+                for mut opt in state.kill_channels.drain(..) {
+                    if let Some(tx) = opt.take() {
+                        tx.send(()).unwrap_or(());
+                    }
+                }
+            }
         }
     }
 
@@ -164,7 +190,9 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
 
     trace!("Main event loop has stopped.");
 
-    // Why need to drop the sending end of this channel, so that the receiving end will
+    ctrl_c_task.abort();
+
+    // We need to drop the sending end of this channel, so that the receiving end will
     // close once all messages have been delivered. If we don't drop this end here, the
     // draining loop below will wait indefinitely.
     let mut task_set = state.shut_down();
