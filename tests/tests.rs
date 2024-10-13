@@ -350,6 +350,22 @@ fn it_supports_hiding_by_name() {
     assert_eq_lines_unordered(expected, out);
 }
 
+#[cfg(not(windows))]
+#[test]
+fn it_detects_ctrl_c() {
+    let (_, mut cmd) = setup("it_detects_ctrl_c");
+
+    let out = cmd.arg("sleep 5").arg("sleep 10").kill();
+
+    let expected = r#"Ctrl-C issued
+Terminating all processes..
+[0] sleep 5 exited with signal: 9 (SIGKILL)
+[1] sleep 10 exited with signal: 9 (SIGKILL)
+"#;
+
+    assert_eq_lines_unordered(expected, out);
+}
+
 fn escape_debug_by_line(s: impl AsRef<str>) -> String {
     s.as_ref()
         .escape_debug()

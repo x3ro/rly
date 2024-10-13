@@ -7,7 +7,7 @@ use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::process::{self, Command};
+use std::process::{self, Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use std::{env, error, thread};
@@ -15,10 +15,10 @@ use std::{env, error, thread};
 use edit_distance::edit_distance;
 use pretty_assertions::StrComparison;
 
-static TEST_DIR: &'static str = "ripgrep-tests";
+static TEST_DIR: &'static str = "rly-tests";
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 
-/// Setup an empty work directory and return a command pointing to the ripgrep
+/// Setup an empty work directory and return a command pointing to the rly
 /// executable whose CWD is set to the work directory.
 ///
 /// The name given will be used to create the directory. Generally, it should
@@ -30,7 +30,7 @@ pub fn setup(test_name: &str) -> (Dir, TestCommand) {
 }
 
 /// Break the given string into lines, sort them and then join them back
-/// together. This is useful for testing output from ripgrep that may not
+/// together. This is useful for testing output from rly that may not
 /// always be in the same order.
 #[allow(dead_code)]
 pub fn sort_lines(lines: &str) -> String {
@@ -82,8 +82,8 @@ impl Dir {
         }
         nice_err(&dir, repeat(|| fs::create_dir_all(&dir)));
         Dir {
-            root: root,
-            dir: dir,
+            root,
+            dir,
             pcre2: false,
         }
     }
@@ -149,34 +149,29 @@ impl Dir {
         nice_err(&path, repeat(|| fs::create_dir_all(&path)));
     }
 
-    /// Creates a new command that is set to use the ripgrep executable in
+    /// Creates a new command that is set to use the rly executable in
     /// this working directory.
     ///
-    /// This also:
-    ///
-    /// * Unsets the `RIPGREP_CONFIG_PATH` environment variable.
-    /// * Sets the `--path-separator` to `/` so that paths have the same output
-    ///   on all systems. Tests that need to check `--path-separator` itself
-    ///   can simply pass it again to override it.
+    /// This also sets the `CLICOLOR_FORCE` environment variable.
     pub fn command(&self) -> TestCommand {
         let mut cmd = self.bin();
         cmd.env("CLICOLOR_FORCE", "true");
         cmd.current_dir(&self.dir);
         TestCommand {
             dir: self.clone(),
-            cmd: cmd,
+            cmd,
         }
     }
 
-    /// Returns the path to the ripgrep executable.
+    /// Returns the path to the rly executable.
     pub fn bin(&self) -> process::Command {
-        let rg = self.root.join(format!("../rly{}", env::consts::EXE_SUFFIX));
-        println!("exec: {}", rg.to_string_lossy());
+        let rly = self.root.join(format!("../rly{}", env::consts::EXE_SUFFIX));
+        println!("exec: {}", rly.to_string_lossy());
         match cross_runner() {
-            None => process::Command::new(rg),
+            None => process::Command::new(rly),
             Some(runner) => {
                 let mut cmd = process::Command::new(runner);
-                cmd.arg(rg);
+                cmd.arg(rly);
                 cmd
             }
         }
@@ -312,6 +307,35 @@ impl TestCommand {
         worker.join().unwrap().unwrap();
 
         let stdout = String::from_utf8_lossy(&output.stdout);
+        match stdout.parse() {
+            Ok(t) => t,
+            Err(err) => {
+                panic!("could not convert from string: {:?}\n\n{}", err, stdout);
+            }
+        }
+    }
+
+    /// Sends SIGINT to process and captures output
+    #[cfg(not(windows))]
+    pub fn kill(&mut self) -> String {
+        use nix::sys::signal::{self, Signal};
+        use nix::unistd::Pid;
+
+        let child = self
+            .cmd
+            .stdout(Stdio::piped()) // Capture stdout
+            .spawn()
+            .expect("Failed to spawn the process");
+
+        // Allow the process sufficient time to start and set up Ctrl-C handler
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
+        let pid = Pid::from_raw(child.id() as i32);
+        signal::kill(pid, Signal::SIGINT).expect("Failed to send SIGINT");
+
+        let output = child.wait_with_output().expect("Failed to read stdout");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
         match stdout.parse() {
             Ok(t) => t,
             Err(err) => {
