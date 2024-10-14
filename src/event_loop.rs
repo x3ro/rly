@@ -145,7 +145,7 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
                         .context("Failed to send spawn message")
                     });
                 } else if should_kill_others(&state, &status) {
-                    rly_println!(cmd, "--> Sending SIGKILL to other processes..");
+                    rly_println!(cmd, "--> Sending SIGTERM to other processes..");
                     for mut opt in state.kill_channels.drain(..) {
                         if let Some(tx) = opt.take() {
                             tx.send(()).unwrap_or(());
@@ -170,7 +170,7 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
     }
 
     fn should_kill_others(state: &State, status: &ExitStatus) -> bool {
-        // If the kill channels are empty ,that means that we've already
+        // If the kill channels are empty, that means that we've already
         // sent kill signals to the processes. In that case, we shouldn't
         // try to do it again.
         if state.kill_channels.is_empty() {
@@ -294,14 +294,23 @@ async fn handle_spawn_event(state: &mut State, command_idx: usize, is_restart: b
             }
 
             _ = kill_rx => {
-                // TODO: We're currently sending SIGKILL, but it would probably be
-                //       preferable to send SIGTERM instead. Tokio does not support
-                //       this out of the box, though. Maybe use the `nix` crate?
-                //       See also: https://stackoverflow.com/a/58156963/124257
-
                 trace!("Received kill signal for {cmd}");
-                child.start_kill()?;
-                let status = child.wait().await?;
+
+                if cfg!(target_os = "windows") {
+                  if let Err(e) = child.start_kill() {
+                    eprintln!("Could not kill process: {:?}", e);
+                  };
+                } else {
+                  // On Unix, it is preferable to send the SIGTERM signal as it allows
+                  // the process to shut down gracefully
+                  let pid = nix::unistd::Pid::from_raw(child.id().unwrap() as i32);
+                  nix::sys::signal::kill(pid, nix::sys::signal::Signal::SIGTERM).expect("Failed to send SIGTERM");
+                }
+
+                let Ok(status) = child.wait().await else {
+                  eprintln!("Could not wait for process");
+                  return Ok(());
+                };
 
                 debug!("{cmd} killed with {status}");
                 tx.send(Event::Exit {

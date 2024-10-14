@@ -268,8 +268,8 @@ fn it_kills_others_on_exit_0() {
 
     let expected = format!(
         r#"[0] exit 0 exited with exit status: 0
---> Sending SIGKILL to other processes..
-[1] sleep 0.2; echo 'should not be printed' exited with signal: 9 (SIGKILL)
+--> Sending SIGTERM to other processes..
+[1] sleep 0.2; echo 'should not be printed' exited with signal: 15 (SIGTERM)
 "#
     );
 
@@ -310,8 +310,8 @@ fn it_does_kill_others_on_fail_on_exit_code_1() {
 
     let expected = format!(
         r#"[0] exit 1 exited with exit status: 1
---> Sending SIGKILL to other processes..
-[1] sleep 0.2; echo 'should not be printed' exited with signal: 9 (SIGKILL)
+--> Sending SIGTERM to other processes..
+[1] sleep 0.2; echo 'should not be printed' exited with signal: 15 (SIGTERM)
 "#
     );
 
@@ -359,8 +359,8 @@ fn it_detects_ctrl_c() {
 
     let expected = r#"Ctrl-C issued
 Terminating all processes..
-[0] sleep 5 exited with signal: 9 (SIGKILL)
-[1] sleep 10 exited with signal: 9 (SIGKILL)
+[0] sleep 5 exited with signal: 15 (SIGTERM)
+[1] sleep 10 exited with signal: 15 (SIGTERM)
 "#;
 
     assert_eq_lines_unordered(expected, out);
