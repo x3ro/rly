@@ -61,7 +61,7 @@ impl TryFrom<Args> for Config {
         let hide = args
             .hide
             .map(|x| x.split(',').map(|s| s.to_string()).collect())
-            .unwrap_or_else(Vec::new);
+            .unwrap_or_default();
 
         let mut config = Config {
             commands: vec![],
