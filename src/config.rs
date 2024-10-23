@@ -35,6 +35,12 @@ pub struct Config {
     pub kill_others_on_fail: bool,
 }
 
+impl Config {
+    pub fn disable_output(&self) -> bool {
+        self.raw
+    }
+}
+
 fn maybe_repeat(input: &str, separator: char, count: usize) -> Vec<String> {
     let mut result: Vec<_> = input.split(separator).map(|s| s.to_string()).collect();
 
