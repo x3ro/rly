@@ -33,7 +33,6 @@ enum Event {
         status: ExitStatus,
         command_idx: usize,
     },
-    CtrlC,
 }
 
 const OUTPUT_CHANNEL_BUFFER_SIZE: usize = 128;
@@ -49,6 +48,116 @@ struct State {
 impl State {
     pub fn shut_down(self) -> JoinSet<Result<()>> {
         self.task_set
+    }
+}
+
+async fn handle_ctrlc() -> Result<()> {
+    match signal::ctrl_c().await {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            eprintln!("Unable to listen to Ctrl-C: {}", e);
+            Err(anyhow!(e))
+        }
+    }
+}
+
+fn should_kill_others(state: &State, status: &ExitStatus) -> bool {
+    // If the kill channels are empty, that means that we've already
+    // sent kill signals to the processes. In that case, we shouldn't
+    // try to do it again.
+    if state.kill_channels.is_empty() {
+        return false;
+    }
+
+    if state.config.kill_others_on_fail {
+        return !status.success();
+    }
+
+    if !state.config.kill_others {
+        return false;
+    }
+
+    true
+}
+
+async fn handle_next_event(
+    config: &'static Config,
+    state: &mut State,
+    rx: &mut mpsc::Receiver<Event>,
+) -> Result<bool> {
+    match rx.recv().await {
+        Some(Event::Spawn {
+            command_idx,
+            is_restart,
+        }) => {
+            handle_spawn_event(state, command_idx, is_restart).await?;
+            Ok(true)
+        }
+
+        Some(Event::Output { command_idx, line }) => {
+            let cmd = config.commands.get(command_idx).unwrap();
+            rly_println!(cmd, "{} {}", cmd.prefix(), line);
+            Ok(true)
+        }
+
+        Some(Event::Exit {
+            command_idx,
+            status,
+        }) => {
+            let cmd = config.commands.get(command_idx).unwrap();
+            let full_command = &config.commands.get(command_idx).unwrap().command;
+            rly_println!(
+                cmd,
+                "{} {} exited with {}",
+                cmd.prefix(),
+                full_command,
+                status
+            );
+
+            // -1 because `fetch_sub` returns the state _before_ the subtraction operation
+            let num_processes = state.children_alive.fetch_sub(1, Ordering::Relaxed) - 1;
+            debug!("{cmd} exited. Alive processes now: {}", num_processes);
+
+            // We're mirroring the behaviour of concurrently, where restarts only happen if
+            // the process exited with a non-success code. This seems to make sense, but maybe
+            // there is a case for an option to always restart?
+            if !status.success()
+                && (cmd.restart_indefinitely
+                    || cmd.restart_tries.fetch_sub(1, Ordering::Relaxed) > 0)
+            {
+                let tx = state.tx.clone();
+                state.task_set.spawn(async move {
+                    if !config.restart_after.is_zero() {
+                        tokio::time::sleep(config.restart_after).await;
+                    }
+
+                    tx.send(Event::Spawn {
+                        command_idx,
+                        is_restart: true,
+                    })
+                    .await
+                    .context("Failed to send spawn message")
+                });
+
+                Ok(true)
+            } else if should_kill_others(&state, &status) {
+                rly_println!(cmd, "--> Sending SIGTERM to other processes..");
+                for mut opt in state.kill_channels.drain(..) {
+                    if let Some(tx) = opt.take() {
+                        tx.send(()).unwrap_or(());
+                    }
+                }
+
+                Ok(true)
+            } else if num_processes < 1 {
+                debug!("No more processes. Stopping main loop.");
+                Ok(false)
+            } else {
+                Ok(true)
+            }
+        }
+
+        None => Ok(false),
     }
 }
 
@@ -80,117 +189,30 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
             .unwrap()
     }
 
-    let ctrl_c_task = tokio::task::spawn({
-        let tx = state.tx.clone();
-        async move {
-            match signal::ctrl_c().await {
-                Ok(()) => {
-                    let _ = tx.send(Event::CtrlC).await;
-                }
-                Err(err) => {
-                    eprintln!("Unable to listen to Ctrl-C: {}", err);
-                }
-            }
-        }
-    });
-
-    while let Some(event) = rx.recv().await {
-        match event {
-            Event::Spawn {
-                command_idx,
-                is_restart,
-            } => handle_spawn_event(&mut state, command_idx, is_restart).await?,
-
-            Event::Output { command_idx, line } => {
-                let cmd = config.commands.get(command_idx).unwrap();
-                rly_println!(cmd, "{} {}", cmd.prefix(), line);
-            }
-
-            Event::Exit {
-                command_idx,
-                status,
-            } => {
-                let cmd = config.commands.get(command_idx).unwrap();
-                let full_command = &config.commands.get(command_idx).unwrap().command;
-                rly_println!(
-                    cmd,
-                    "{} {} exited with {}",
-                    cmd.prefix(),
-                    full_command,
-                    status
-                );
-
-                // -1 because `fetch_sub` returns the state _before_ the subtraction operation
-                let num_processes = state.children_alive.fetch_sub(1, Ordering::Relaxed) - 1;
-                debug!("{cmd} exited. Alive processes now: {}", num_processes);
-
-                // We're mirroring the behaviour of concurrently, where restarts only happen if
-                // the process exited with a non-success code. This seems to make sense, but maybe
-                // there is a case for an option to always restart?
-                if !status.success()
-                    && (cmd.restart_indefinitely
-                        || cmd.restart_tries.fetch_sub(1, Ordering::Relaxed) > 0)
-                {
-                    let tx = state.tx.clone();
-                    state.task_set.spawn(async move {
-                        if !config.restart_after.is_zero() {
-                            tokio::time::sleep(config.restart_after).await;
-                        }
-
-                        tx.send(Event::Spawn {
-                            command_idx,
-                            is_restart: true,
-                        })
-                        .await
-                        .context("Failed to send spawn message")
-                    });
-                } else if should_kill_others(&state, &status) {
-                    rly_println!(cmd, "--> Sending SIGTERM to other processes..");
+    loop {
+        tokio::select! {
+            _ = handle_ctrlc() => {
+                println!("Ctrl-C issued");
+                if state.kill_channels.is_empty() {
+                  break;
+                } else {
+                    println!("Terminating all processes..");
                     for mut opt in state.kill_channels.drain(..) {
                         if let Some(tx) = opt.take() {
                             tx.send(()).unwrap_or(());
                         }
                     }
-                } else if num_processes < 1 {
-                    debug!("No more processes. Stopping main loop.");
-                    break;
                 }
-            }
-
-            Event::CtrlC => {
-                println!("Ctrl-C issued");
-                println!("Terminating all processes..");
-                for mut opt in state.kill_channels.drain(..) {
-                    if let Some(tx) = opt.take() {
-                        tx.send(()).unwrap_or(());
-                    }
+            },
+            result = handle_next_event(config, &mut state, &mut rx) => {
+                if !result? {
+                  break;
                 }
-            }
+            },
         }
-    }
-
-    fn should_kill_others(state: &State, status: &ExitStatus) -> bool {
-        // If the kill channels are empty, that means that we've already
-        // sent kill signals to the processes. In that case, we shouldn't
-        // try to do it again.
-        if state.kill_channels.is_empty() {
-            return false;
-        }
-
-        if state.config.kill_others_on_fail {
-            return !status.success();
-        }
-
-        if !state.config.kill_others {
-            return false;
-        }
-
-        true
     }
 
     trace!("Main event loop has stopped.");
-
-    ctrl_c_task.abort();
 
     // We need to drop the sending end of this channel, so that the receiving end will
     // close once all messages have been delivered. If we don't drop this end here, the
