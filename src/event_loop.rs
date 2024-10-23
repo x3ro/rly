@@ -1,6 +1,7 @@
 use std::future::Future;
 use std::process::ExitStatus;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 use log::{debug, error, trace};
@@ -329,10 +330,22 @@ async fn handle_spawn_event(state: &mut State, command_idx: usize, is_restart: b
                   nix::sys::signal::kill(pid, nix::sys::signal::Signal::SIGTERM).expect("Failed to send SIGTERM");
                 }
 
-                let Ok(status) = child.wait().await else {
-                  eprintln!("Could not wait for process");
-                  return Ok(());
-                };
+                let status =
+                  match tokio::time::timeout(Duration::from_secs(2), child.wait()).await {
+                    Ok(Ok(status)) => {
+                      status
+                    },
+                    Ok(Err(e)) => {
+                      eprintln!("Could not wait for process");
+                      Err(e)?
+                    }
+                    Err(_) => {
+                      eprintln!("Process did not terminate within 2s, sending SIGKILL...");
+                      let pid = nix::unistd::Pid::from_raw(child.id().unwrap() as i32);
+                      nix::sys::signal::kill(pid, nix::sys::signal::Signal::SIGKILL).expect("Failed to send SIGKILL");
+                      ExitStatus::default()
+                    },
+                  };
 
                 debug!("{cmd} killed with {status}");
                 tx.send(Event::Exit {
