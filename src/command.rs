@@ -68,7 +68,12 @@ impl Command {
 
     pub fn tokio_command(&self) -> TokioCommand {
         let mut runnable = tokio::process::Command::new("sh");
-        runnable.arg("-c").arg(&self.command);
+
+        // Spawn command in a new process group (0). Pressing Ctrl-C in the
+        // parent sends `SIGINT` to all processes in the current foreground
+        // process group. rly installs its own Ctrl-C handler to terminate
+        // child processes with the `SIGTERM` signal.
+        runnable.process_group(0).arg("-c").arg(&self.command);
 
         if !self.raw {
             runnable.stdout(Stdio::piped()).stderr(Stdio::piped());
