@@ -113,6 +113,10 @@ impl Command {
 
         format!("{}{}{}", left, ELLIPSIS, right)
     }
+
+    pub fn disable_output(&self) -> bool {
+        self.raw || self.hide
+    }
 }
 
 /// Helper to generate a list of [`Command`]s from a [`crate::Config`]

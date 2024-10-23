@@ -23,8 +23,8 @@ pub struct Args {
     #[clap(long, default_value = ",")]
     pub name_separator: char,
 
-    // Output only raw output of processes, disables
-    // prettifying and concurrently coloring.
+    /// Output only raw output of processes, disables
+    /// prettifying and coloring.
     #[clap(short, long)]
     pub raw: bool,
 

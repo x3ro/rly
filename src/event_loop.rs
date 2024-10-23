@@ -14,7 +14,7 @@ use crate::{Command, Config};
 
 macro_rules! rly_println {
     ($cmd:expr, $($arg:tt)*) => {{
-        if !$cmd.raw && !$cmd.hide {
+        if !$cmd.disable_output() {
             println!($($arg)*);
         }
     }};
@@ -141,7 +141,7 @@ async fn handle_next_event(
                 });
 
                 Ok(true)
-            } else if should_kill_others(&state, &status) {
+            } else if should_kill_others(state, &status) {
                 rly_println!(cmd, "--> Sending SIGTERM to other processes..");
                 for mut opt in state.kill_channels.drain(..) {
                     if let Some(tx) = opt.take() {
@@ -193,11 +193,11 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
     loop {
         tokio::select! {
             _ = handle_ctrlc() => {
-                println!("Ctrl-C issued");
+                rly_println!(config, "Ctrl-C issued");
                 if state.kill_channels.is_empty() {
                   break;
                 } else {
-                    println!("Terminating all processes..");
+                    rly_println!(config, "Terminating all processes..");
                     for mut opt in state.kill_channels.drain(..) {
                         if let Some(tx) = opt.take() {
                             tx.send(()).unwrap_or(());
