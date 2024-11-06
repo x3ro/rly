@@ -17,7 +17,7 @@ anyhow = "1.0.68"
 serde = { version = "1.0.185" }
 serde_derive = "1.0.214"
 pretty_assertions = "1.4.1"
-chrono = "0.4.23"
+chrono = "0.4.38"
 colored = "2.0.0"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
