@@ -42,9 +42,9 @@ pub struct Args {
     // #[clap(short, long)]
     // group: bool,
 
-    // Show timing information for all processes.
-    // #[clap(long)]
-    // pub timings: bool,
+    /// Show timing information for all processes.
+    #[clap(long)]
+    pub timings: bool,
 
     // Passthrough additional arguments to commands
     // (accessible via placeholders) instead of treating

@@ -3,6 +3,7 @@ use std::process::Stdio;
 use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 
 use anyhow::{Context, Result};
+use chrono::format::{DelayedFormat, StrftimeItems};
 use tokio::process::Command as TokioCommand;
 
 use crate::colors::colorize;
@@ -37,6 +38,9 @@ pub struct Command {
     /// See [`crate::cli::Args::restart_tries`]
     pub restart_tries: AtomicI32,
 
+    /// See [`crate::cli::Args::timing`]
+    pub timings: bool,
+
     /// See [`crate::cli::Args::prefix`]
     prefix: String,
 
@@ -55,6 +59,19 @@ impl std::fmt::Display for Command {
 }
 
 impl Command {
+    pub fn time(&self) -> DelayedFormat<StrftimeItems> {
+        chrono::prelude::Local::now()
+            .format(&self.timestamp_format)
+    }
+
+    pub fn status_msg(&self, msg: &str) -> String {
+        let mut res = format!("{} {} {}", self.prefix(), self.command, msg);
+        if self.timings {
+            res = format!("{} at {}", res, self.time().to_string())
+        }
+        res
+    }
+
     pub fn prefix(&self) -> String {
         self.prefix
             .replace(
@@ -155,6 +172,7 @@ impl Commands {
         let command = Command {
             prefix,
             hide,
+            timings: config.timings,
             raw: config.raw,
             timestamp_format: config.timestamp_format.clone(),
             command: cmd.as_ref().to_string(),
