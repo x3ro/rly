@@ -328,7 +328,7 @@ impl TestCommand {
             .expect("Failed to spawn the process");
 
         // Allow the process sufficient time to start and set up Ctrl-C handler
-        std::thread::sleep(std::time::Duration::from_millis(200));
+        std::thread::sleep(Duration::from_millis(1000));
 
         let pid = Pid::from_raw(child.id() as i32);
         signal::kill(pid, Signal::SIGINT).expect("Failed to send SIGINT");
