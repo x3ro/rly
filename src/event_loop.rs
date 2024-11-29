@@ -271,6 +271,10 @@ async fn handle_spawn_event(state: &mut State, command_idx: usize, is_restart: b
     cmd.pid.store(pid, Ordering::Relaxed);
     debug!("Spawned command {cmd}");
 
+    if state.config.timings {
+        rly_println!(cmd, "{}", cmd.status_msg("started"));
+    }
+
     if !state.config.raw {
         let stdout = child
             .stdout

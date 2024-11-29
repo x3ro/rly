@@ -33,6 +33,9 @@ pub struct Config {
 
     /// See [`Args::kill_others_on_fail`]
     pub kill_others_on_fail: bool,
+
+    /// See [`Args::timings`]
+    pub timings: bool,
 }
 
 impl Config {
@@ -83,6 +86,7 @@ impl TryFrom<Args> for Config {
             restart_tries: args.restart_tries,
             kill_others: args.kill_others,
             kill_others_on_fail: args.kill_others_on_fail,
+            timings: args.timings,
         };
 
         config.commands = Commands::from(&config, args.commands.as_slice())?;
