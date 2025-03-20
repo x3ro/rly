@@ -241,6 +241,7 @@ pub async fn event_loop(config: &'static Config) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::manual_async_fn)]
 fn output_listener<R: AsyncRead + Unpin>(
     name: &'static str,
     command_idx: usize,
