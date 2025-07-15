@@ -11,7 +11,7 @@ repository = "https://github.com/x3ro/rly"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1.45.1", features = ["full"] }
+tokio = { version = "1.46.1", features = ["full"] }
 clap = { version  = "4.5.40", features = ["derive", "wrap_help"] }
 anyhow = "1.0.98"
 serde = { version = "1.0.219" }
